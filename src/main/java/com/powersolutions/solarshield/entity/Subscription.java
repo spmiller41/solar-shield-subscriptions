@@ -1,0 +1,115 @@
+package com.powersolutions.solarshield.entity;
+
+import com.powersolutions.solarshield.dto.FormIntakeRequest;
+import com.powersolutions.solarshield.enums.PlanTier;
+import com.powersolutions.solarshield.enums.SubscriptionStatus;
+import jakarta.persistence.*;
+
+import java.time.LocalDateTime;
+
+@Entity
+@Table(name = "subscription")
+public class Subscription {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private int id;
+
+    // FK
+    @Column(name = "contact_id")
+    public int contactId;
+
+    //FK
+    @Column(name = "address_id")
+    public int addressId;
+
+    @Column(name = "plan_tier")
+    public PlanTier planTier;
+
+    @Column(name = "subscription_status")
+    public SubscriptionStatus subscriptionStatus;
+
+    @Column(name = "square_order_id")
+    public String squareOrderId;
+
+    @Column(name = "square_checkout_link")
+    public String squareCheckoutLink;
+
+    @Column(name = "created_at")
+    public LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    public LocalDateTime updatedAt;
+
+    @Column(name = "activated_at")
+    public LocalDateTime activatedAt;
+
+    public Subscription() {}
+
+    public Subscription(FormIntakeRequest request, Contact contact, Address address, SubscriptionStatus status) {
+        setContactId(contact.getId());
+        setAddressId(address.getId());
+        setPlanTier(request.getPlanTier());
+        setSubscriptionStatus(status);
+        setCreatedAt(LocalDateTime.now());
+        setUpdatedAt(LocalDateTime.now());
+    }
+
+    public int getId() { return id; }
+
+    public void setId(int id) { this.id = id; }
+
+    public int getContactId() { return contactId; }
+
+    public void setContactId(int contactId) { this.contactId = contactId; }
+
+    public int getAddressId() { return addressId; }
+
+    public void setAddressId(int addressId) { this.addressId = addressId; }
+
+    public PlanTier getPlanTier() { return planTier; }
+
+    public void setPlanTier(PlanTier planTier) { this.planTier = planTier; }
+
+    public SubscriptionStatus getSubscriptionStatus() { return subscriptionStatus; }
+
+    public void setSubscriptionStatus(SubscriptionStatus subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
+
+    public String getSquareOrderId() { return squareOrderId; }
+
+    public void setSquareOrderId(String squareOrderId) { this.squareOrderId = squareOrderId; }
+
+    public String getSquareCheckoutLink() { return squareCheckoutLink; }
+
+    public void setSquareCheckoutLink(String squareCheckoutLink) { this.squareCheckoutLink = squareCheckoutLink; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public LocalDateTime getActivatedAt() { return activatedAt; }
+
+    public void setActivatedAt(LocalDateTime activatedAt) { this.activatedAt = activatedAt; }
+
+    @Override
+    public String toString() {
+        return "Subscription{" +
+                "id=" + id +
+                ", contactId=" + contactId +
+                ", addressId=" + addressId +
+                ", planTier='" + planTier + '\'' +
+                ", subscriptionStatus=" + subscriptionStatus +
+                ", squareOrderId='" + squareOrderId + '\'' +
+                ", squareCheckoutLink='" + squareCheckoutLink + '\'' +
+                ", createdAt=" + createdAt +
+                ", updatedAt=" + updatedAt +
+                ", activatedAt=" + activatedAt +
+                '}';
+    }
+
+}

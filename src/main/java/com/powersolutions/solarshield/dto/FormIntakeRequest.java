@@ -8,7 +8,7 @@ public class FormIntakeRequest {
     private String lastName;
     private String email;
     private String phone;
-    private String address;
+    private String street;
     private String city;
     private String state;
     private String zip;
@@ -32,9 +32,9 @@ public class FormIntakeRequest {
 
     public void setPhone(String phone) { this.phone = phone; }
 
-    public String getAddress() { return address; }
+    public String getStreet() { return street; }
 
-    public void setAddress(String address) { this.address = address; }
+    public void setStreet(String street) { this.street = street; }
 
     public String getCity() { return city; }
 
@@ -59,7 +59,7 @@ public class FormIntakeRequest {
                 ", lastName='" + lastName + '\'' +
                 ", email='" + email + '\'' +
                 ", phone='" + phone + '\'' +
-                ", address='" + address + '\'' +
+                ", street='" + street + '\'' +
                 ", city='" + city + '\'' +
                 ", state='" + state + '\'' +
                 ", zip='" + zip + '\'' +

@@ -17,7 +17,7 @@ public class FormIntakeMapper {
         request.setLastName(trim(formParams.get("Last Name")));
         request.setEmail(trim(formParams.get("Email")));
         request.setPhone(normalizePhone(formParams.get("Phone")));
-        request.setAddress(trim(formParams.get("Address")));
+        request.setStreet(trim(formParams.get("Address")));
         request.setCity(trim(formParams.get("City")));
         request.setState(normalizeState(formParams.get("US States")));
         request.setZip(trim(formParams.get("Zip")));
