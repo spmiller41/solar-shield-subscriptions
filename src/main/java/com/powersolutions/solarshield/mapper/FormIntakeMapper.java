@@ -17,8 +17,8 @@ public class FormIntakeMapper {
         request.setLastName(trim(formParams.get("Last Name")));
         request.setEmail(trim(formParams.get("Email")));
         request.setPhone(normalizePhone(formParams.get("Phone")));
-        request.setStreet(trim(formParams.get("Address")));
-        request.setCity(trim(formParams.get("City")));
+        request.setStreet(normalizeUpper(formParams.get("Address")));
+        request.setCity(normalizeUpper(formParams.get("City")));
         request.setState(normalizeState(formParams.get("US States")));
         request.setZip(trim(formParams.get("Zip")));
         request.setPlanTier(mapPlanTier(formParams.get("Home Solar Shield Level")));
@@ -76,5 +76,7 @@ public class FormIntakeMapper {
 
         throw new IllegalArgumentException("Unknown plan tier: " + level);
     }
+
+    private String normalizeUpper(String value) { return value == null ? null : value.trim().toUpperCase(); }
 
 }

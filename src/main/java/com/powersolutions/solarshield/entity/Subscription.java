@@ -24,9 +24,11 @@ public class Subscription {
     @Column(name = "address_id")
     public int addressId;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "plan_tier")
     public PlanTier planTier;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "subscription_status")
     public SubscriptionStatus subscriptionStatus;
 
