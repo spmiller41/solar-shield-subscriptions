@@ -17,35 +17,19 @@ public class Subscription {
     private int id;
 
     // FK
-    @Column(name = "contact_id")
-    public int contactId;
+    @Column(name = "contact_id") public int contactId;
 
-    //FK
-    @Column(name = "address_id")
-    public int addressId;
+    // FK
+    @Column(name = "address_id") public int addressId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "plan_tier")
-    public PlanTier planTier;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "subscription_status")
-    public SubscriptionStatus subscriptionStatus;
-
-    @Column(name = "square_order_id")
-    public String squareOrderId;
-
-    @Column(name = "square_checkout_link")
-    public String squareCheckoutLink;
-
-    @Column(name = "created_at")
-    public LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    public LocalDateTime updatedAt;
-
-    @Column(name = "activated_at")
-    public LocalDateTime activatedAt;
+    @Enumerated(EnumType.STRING) @Column(name = "plan_tier") public PlanTier planTier;
+    @Enumerated(EnumType.STRING) @Column(name = "subscription_status") public SubscriptionStatus subscriptionStatus;
+    @Column(name = "customer_subscription_id") public String customerSubscriptionId;
+    @Column(name = "customerId") public String customerId;
+    @Column(name = "email") public String email;
+    @Column(name = "created_at") public LocalDateTime createdAt;
+    @Column(name = "updated_at") public LocalDateTime updatedAt;
+    @Column(name = "activated_at") public LocalDateTime activatedAt;
 
     public Subscription() {}
 
@@ -78,13 +62,17 @@ public class Subscription {
 
     public void setSubscriptionStatus(SubscriptionStatus subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
 
-    public String getSquareOrderId() { return squareOrderId; }
+    public String getCustomerSubscriptionId() { return customerSubscriptionId; }
 
-    public void setSquareOrderId(String squareOrderId) { this.squareOrderId = squareOrderId; }
+    public void setCustomerSubscriptionId(String customerSubscriptionId) { this.customerSubscriptionId = customerSubscriptionId; }
 
-    public String getSquareCheckoutLink() { return squareCheckoutLink; }
+    public String getCustomerId() { return customerId; }
 
-    public void setSquareCheckoutLink(String squareCheckoutLink) { this.squareCheckoutLink = squareCheckoutLink; }
+    public void setCustomerId(String customerId) { this.customerId = customerId; }
+
+    public String getEmail() { return email; }
+
+    public void setEmail(String email) { this.email = email; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
 
@@ -104,10 +92,11 @@ public class Subscription {
                 "id=" + id +
                 ", contactId=" + contactId +
                 ", addressId=" + addressId +
-                ", planTier='" + planTier + '\'' +
+                ", planTier=" + planTier +
                 ", subscriptionStatus=" + subscriptionStatus +
-                ", squareOrderId='" + squareOrderId + '\'' +
-                ", squareCheckoutLink='" + squareCheckoutLink + '\'' +
+                ", customerSubscriptionId='" + customerSubscriptionId + '\'' +
+                ", customerId='" + customerId + '\'' +
+                ", email='" + email + '\'' +
                 ", createdAt=" + createdAt +
                 ", updatedAt=" + updatedAt +
                 ", activatedAt=" + activatedAt +
