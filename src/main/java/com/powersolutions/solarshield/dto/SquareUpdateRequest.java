@@ -1,53 +1,57 @@
 package com.powersolutions.solarshield.dto;
 
+import java.math.BigDecimal;
+
 public class SquareUpdateRequest {
 
-    private String eventType;
-    private String invoiceStatus;
+    private String title;
+    private String subscriptionId;
     private String customerId;
-    private String customerEmail;
+    private String email;
+    private String automaticPaymentSource;
+    private BigDecimal amount;
+    private String currency;
 
     public SquareUpdateRequest() {}
 
-    public String getEventType() {
-        return eventType;
-    }
+    public String getTitle() { return title; }
 
-    public void setEventType(String eventType) {
-        this.eventType = eventType;
-    }
+    public void setTitle(String title) { this.title = title; }
 
-    public String getInvoiceStatus() {
-        return invoiceStatus;
-    }
+    public String getSubscriptionId() { return subscriptionId; }
 
-    public void setInvoiceStatus(String invoiceStatus) {
-        this.invoiceStatus = invoiceStatus;
-    }
+    public void setSubscriptionId(String subscriptionId) { this.subscriptionId = subscriptionId; }
 
-    public String getCustomerId() {
-        return customerId;
-    }
+    public String getCustomerId() { return customerId; }
 
-    public void setCustomerId(String customerId) {
-        this.customerId = customerId;
-    }
+    public void setCustomerId(String customerId) { this.customerId = customerId; }
 
-    public String getCustomerEmail() {
-        return customerEmail;
-    }
+    public String getEmail() { return email; }
 
-    public void setCustomerEmail(String customerEmail) {
-        this.customerEmail = customerEmail;
-    }
+    public void setEmail(String email) { this.email = email; }
+
+    public String getAutomaticPaymentSource() { return automaticPaymentSource; }
+
+    public void setAutomaticPaymentSource(String automaticPaymentSource) { this.automaticPaymentSource = automaticPaymentSource; }
+
+    public BigDecimal getAmount() { return amount; }
+
+    public void setAmount(BigDecimal amount) { this.amount = amount; }
+
+    public String getCurrency() { return currency; }
+
+    public void setCurrency(String currency) { this.currency = currency; }
 
     @Override
     public String toString() {
         return "SquareUpdateRequest{" +
-                "eventType='" + eventType + '\'' +
-                ", invoiceStatus='" + invoiceStatus + '\'' +
+                "title='" + title + '\'' +
+                ", subscriptionId='" + subscriptionId + '\'' +
                 ", customerId='" + customerId + '\'' +
-                ", customerEmail='" + customerEmail + '\'' +
+                ", email='" + email + '\'' +
+                ", automaticPaymentSource='" + automaticPaymentSource + '\'' +
+                ", amount=" + amount +
+                ", currency='" + currency + '\'' +
                 '}';
     }
 

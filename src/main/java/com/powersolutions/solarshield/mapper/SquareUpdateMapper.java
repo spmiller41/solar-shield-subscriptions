@@ -5,36 +5,60 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.powersolutions.solarshield.dto.SquareUpdateRequest;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
 public class SquareUpdateMapper {
 
     private final SquareUpdateRequest request;
 
     public SquareUpdateMapper(String json) throws JsonProcessingException {
-        request = new SquareUpdateRequest();
+        this.request = new SquareUpdateRequest();
 
         JsonNode root = new ObjectMapper().readTree(json);
-        String eventType = root.path("type").asText();
+        JsonNode invoice = root.path("data").path("object").path("invoice");
+        JsonNode primaryRecipient = invoice.path("primary_recipient");
+        JsonNode paymentRequests = invoice.path("payment_requests");
 
-        request.setEventType(eventType);
+        request.setTitle(readNullableText(invoice.path("title")));
+        request.setSubscriptionId(readNullableText(invoice.path("subscription_id")));
+        request.setCustomerId(readNullableText(primaryRecipient.path("customer_id")));
+        request.setEmail(readNullableText(primaryRecipient.path("email_address")));
 
-        switch (eventType) {
-            case "invoice.updated":
-            case "invoice.payment_made":
-                mapInvoice(root);
-                break;
+        if (paymentRequests.isArray() && !paymentRequests.isEmpty()) {
+            JsonNode firstPaymentRequest = paymentRequests.get(0);
 
-            default:
-                throw new IllegalArgumentException("Unsupported Square webhook type: " + eventType);
+            request.setAutomaticPaymentSource(
+                    readNullableText(firstPaymentRequest.path("automatic_payment_source"))
+            );
+
+            JsonNode moneyNode = resolveMoneyNode(firstPaymentRequest);
+
+            if (moneyNode != null) {
+                long amountInCents = moneyNode.path("amount").asLong(0);
+                request.setAmount(BigDecimal.valueOf(amountInCents)
+                        .movePointLeft(2)
+                        .setScale(2, RoundingMode.HALF_UP));
+                request.setCurrency(readNullableText(moneyNode.path("currency")));
+            }
         }
     }
 
-    private void mapInvoice(JsonNode root) {
-        JsonNode invoice = root.path("data").path("object").path("invoice");
-        JsonNode primaryRecipient = invoice.path("primary_recipient");
+    private JsonNode resolveMoneyNode(JsonNode paymentRequest) {
+        JsonNode totalCompletedAmountMoney = paymentRequest.path("total_completed_amount_money");
+        JsonNode computedAmountMoney = paymentRequest.path("computed_amount_money");
 
-        request.setInvoiceStatus(readNullableText(invoice.path("status")));
-        request.setCustomerId(readNullableText(primaryRecipient.path("customer_id")));
-        request.setCustomerEmail(readNullableText(primaryRecipient.path("email_address")));
+        long completedAmount = totalCompletedAmountMoney.path("amount").asLong(0);
+
+        if (completedAmount > 0) {
+            return totalCompletedAmountMoney;
+        }
+
+        if (!computedAmountMoney.isMissingNode() && !computedAmountMoney.isNull()) {
+            return computedAmountMoney;
+        }
+
+        return null;
     }
 
     private String readNullableText(JsonNode node) {
@@ -44,4 +68,5 @@ public class SquareUpdateMapper {
     public SquareUpdateRequest getRequest() {
         return request;
     }
+
 }
