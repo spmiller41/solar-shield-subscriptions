@@ -14,20 +14,11 @@ public class Address {
     @Column(name = "id")
     private int id;
 
-    @Column(name = "street")
-    private String street;
-
-    @Column(name = "city")
-    private String city;
-
-    @Column(name = "state")
-    private String state;
-
-    @Column(name = "zip")
-    private String zip;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
+    @Column(name = "street") private String street;
+    @Column(name = "city") private String city;
+    @Column(name = "state") private String state;
+    @Column(name = "zip") private String zip;
+    @Column(name = "created_at") private LocalDateTime createdAt;
 
     public Address() {}
 

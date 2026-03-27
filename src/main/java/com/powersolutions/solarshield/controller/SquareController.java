@@ -26,6 +26,8 @@ public class SquareController {
         System.out.println("Is valid signature: " + isValidSig);
 
         if (isValidSig) {
+            System.out.println(squareRequest);
+
             SquareUpdateRequest request = new SquareUpdateMapper(squareRequest).getRequest();
             System.out.println(request);
         }
