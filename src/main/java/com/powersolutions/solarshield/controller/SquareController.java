@@ -26,11 +26,15 @@ public class SquareController {
         System.out.println("Is valid signature: " + isValidSig);
 
         if (isValidSig) {
-            System.out.println(squareRequest);
-
             SquareUpdateRequest request = new SquareUpdateMapper(squareRequest).getRequest();
             System.out.println(request);
         }
+    }
+
+    @PostMapping("/updates_test")
+    public void paymentUpdate(@RequestBody String squareRequest) throws JsonProcessingException {
+        SquareUpdateRequest request = new SquareUpdateMapper(squareRequest).getRequest();
+        System.out.println(request);
     }
 
 }
