@@ -1,11 +1,15 @@
 package com.powersolutions.solarshield.dto;
 
+import com.powersolutions.solarshield.enums.SquareEventType;
+
 import java.math.BigDecimal;
 
-public class SquareUpdateRequest {
+public class SquareInvoicePaymentRequest {
 
+    private SquareEventType eventType;
     private String title;
     private String subscriptionId;
+    private String orderId;
     private String customerId;
     private String email;
     private String automaticPaymentSource;
@@ -13,11 +17,19 @@ public class SquareUpdateRequest {
     private String currency;
     private String status;
 
-    public SquareUpdateRequest() {}
+    public SquareInvoicePaymentRequest() {}
+
+    public SquareEventType getEventType() { return eventType; }
+
+    public void setEventType(SquareEventType eventType) { this.eventType = eventType; }
 
     public String getTitle() { return title; }
 
     public void setTitle(String title) { this.title = title; }
+
+    public String getOrderId() { return orderId; }
+
+    public void setOrderId(String orderId) { this.orderId = orderId; }
 
     public String getSubscriptionId() { return subscriptionId; }
 
@@ -49,9 +61,11 @@ public class SquareUpdateRequest {
 
     @Override
     public String toString() {
-        return "SquareUpdateRequest{" +
-                "title='" + title + '\'' +
+        return "SquareInvoicePaymentRequest{" +
+                "eventType='" + eventType + '\'' +
+                ", title='" + title + '\'' +
                 ", subscriptionId='" + subscriptionId + '\'' +
+                ", orderId='" + orderId + '\'' +
                 ", customerId='" + customerId + '\'' +
                 ", email='" + email + '\'' +
                 ", automaticPaymentSource='" + automaticPaymentSource + '\'' +

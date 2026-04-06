@@ -1,7 +1,7 @@
 package com.powersolutions.solarshield.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.powersolutions.solarshield.dto.SquareUpdateRequest;
+import com.powersolutions.solarshield.dto.SquareInvoicePaymentRequest;
 import com.powersolutions.solarshield.mapper.SquareUpdateMapper;
 import com.powersolutions.solarshield.service.security.SquareSignatureVerifier;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,14 +26,14 @@ public class SquareController {
         System.out.println("Is valid signature: " + isValidSig);
 
         if (isValidSig) {
-            SquareUpdateRequest request = new SquareUpdateMapper(squareRequest).getRequest();
+            SquareInvoicePaymentRequest request = new SquareUpdateMapper(squareRequest).getRequest();
             System.out.println(request);
         }
     }
 
     @PostMapping("/updates_test")
     public void paymentUpdate(@RequestBody String squareRequest) throws JsonProcessingException {
-        SquareUpdateRequest request = new SquareUpdateMapper(squareRequest).getRequest();
+        SquareInvoicePaymentRequest request = new SquareUpdateMapper(squareRequest).getRequest();
         System.out.println(request);
     }
 
