@@ -11,6 +11,7 @@ public class SquareUpdateRequest {
     private String automaticPaymentSource;
     private BigDecimal amount;
     private String currency;
+    private String status;
 
     public SquareUpdateRequest() {}
 
@@ -42,6 +43,10 @@ public class SquareUpdateRequest {
 
     public void setCurrency(String currency) { this.currency = currency; }
 
+    public String getStatus() { return status; }
+
+    public void setStatus(String status) { this.status = status; }
+
     @Override
     public String toString() {
         return "SquareUpdateRequest{" +
@@ -52,6 +57,7 @@ public class SquareUpdateRequest {
                 ", automaticPaymentSource='" + automaticPaymentSource + '\'' +
                 ", amount=" + amount +
                 ", currency='" + currency + '\'' +
+                ", status='" + status + '\'' +
                 '}';
     }
 

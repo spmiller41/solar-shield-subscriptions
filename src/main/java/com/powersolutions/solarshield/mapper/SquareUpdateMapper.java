@@ -24,6 +24,7 @@ public class SquareUpdateMapper {
         request.setSubscriptionId(readNullableText(invoice.path("subscription_id")));
         request.setCustomerId(readNullableText(primaryRecipient.path("customer_id")));
         request.setEmail(readNullableText(primaryRecipient.path("email_address")));
+        request.setStatus(readNullableText(invoice.path("status")));
 
         if (paymentRequests.isArray() && !paymentRequests.isEmpty()) {
             JsonNode firstPaymentRequest = paymentRequests.get(0);
@@ -68,5 +69,4 @@ public class SquareUpdateMapper {
     public SquareUpdateRequest getRequest() {
         return request;
     }
-
 }
