@@ -15,6 +15,7 @@ public class Invoice {
 
     @Column(name = "subscription_id") private int subscriptionId;
     @Column(name = "order_id") private String orderId;
+    @Column(name = "event_id") private String eventId;
     @Column(name = "amount") private double amount;
     @Column(name = "currency") private String currency;
     @Column(name = "status") private String status;
@@ -34,6 +35,10 @@ public class Invoice {
     public String getOrderId() { return orderId; }
 
     public void setOrderId(String orderId) { this.orderId = orderId; }
+
+    public String getEventId() { return eventId; }
+
+    public void setEventId(String eventId) { this.eventId = eventId; }
 
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 
@@ -61,6 +66,7 @@ public class Invoice {
                 "id=" + id +
                 ", subscriptionId=" + subscriptionId +
                 ", orderId='" + orderId + '\'' +
+                ", eventId='" + eventId + '\'' +
                 ", amount=" + amount +
                 ", currency='" + currency + '\'' +
                 ", status='" + status + '\'' +
