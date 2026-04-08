@@ -20,6 +20,7 @@ package com.powersolutions.solarshield.enums;
  */
 public enum SquareBillingStatus {
 
+    UNKNOWN(-1),
     DRAFT(1),
     APPROVED(2),
     PENDING(2),
@@ -35,12 +36,12 @@ public enum SquareBillingStatus {
     public int getRank() { return rank; }
 
     public static SquareBillingStatus fromValue(String value) {
-        if (value == null) return null;
+        if (value == null) return UNKNOWN;
 
         try {
             return SquareBillingStatus.valueOf(value);
         } catch (IllegalArgumentException e) {
-            return null;
+            return UNKNOWN;
         }
     }
 
