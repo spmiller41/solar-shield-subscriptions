@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 public class SquareInvoicePaymentRequest {
 
     private SquareEventType eventType;
+    private String eventId;
     private String title;
     private String subscriptionId;
     private String orderId;
@@ -22,6 +23,10 @@ public class SquareInvoicePaymentRequest {
     public SquareEventType getEventType() { return eventType; }
 
     public void setEventType(SquareEventType eventType) { this.eventType = eventType; }
+
+    public String getEventId() { return eventId; }
+
+    public void setEventId(String eventId) { this.eventId = eventId; }
 
     public String getTitle() { return title; }
 
@@ -62,7 +67,8 @@ public class SquareInvoicePaymentRequest {
     @Override
     public String toString() {
         return "SquareInvoicePaymentRequest{" +
-                "eventType='" + eventType + '\'' +
+                "eventType=" + eventType +
+                ", eventId='" + eventId + '\'' +
                 ", title='" + title + '\'' +
                 ", subscriptionId='" + subscriptionId + '\'' +
                 ", orderId='" + orderId + '\'' +

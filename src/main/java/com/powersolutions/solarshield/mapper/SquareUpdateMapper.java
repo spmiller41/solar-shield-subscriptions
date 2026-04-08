@@ -17,6 +17,10 @@ public class SquareUpdateMapper {
         this.request = new SquareInvoicePaymentRequest();
 
         JsonNode root = new ObjectMapper().readTree(json);
+
+        String eventId = readNullableText(root.path("event_id"));
+        request.setEventId(eventId);
+
         String eventTypeValue = readNullableText(root.path("type"));
         SquareEventType eventType = SquareEventType.fromValue(eventTypeValue);
         JsonNode dataObject = root.path("data").path("object");
