@@ -1,4 +1,4 @@
-package com.powersolutions.solarshield.service;
+package com.powersolutions.solarshield.service.impl;
 
 import com.powersolutions.solarshield.entity.Contact;
 import com.powersolutions.solarshield.repo.ContactRepo;

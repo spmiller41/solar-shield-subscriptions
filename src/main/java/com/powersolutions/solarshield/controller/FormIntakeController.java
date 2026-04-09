@@ -1,14 +1,11 @@
 package com.powersolutions.solarshield.controller;
 
 import com.powersolutions.solarshield.dto.FormIntakeRequest;
-import com.powersolutions.solarshield.entity.Address;
 import com.powersolutions.solarshield.entity.Contact;
-import com.powersolutions.solarshield.entity.Subscription;
 import com.powersolutions.solarshield.enums.SubscriptionResult;
-import com.powersolutions.solarshield.enums.SubscriptionStatus;
 import com.powersolutions.solarshield.mapper.FormIntakeMapper;
-import com.powersolutions.solarshield.service.AddressSubscriptionService;
-import com.powersolutions.solarshield.service.ContactService;
+import com.powersolutions.solarshield.service.impl.AddressSubscriptionService;
+import com.powersolutions.solarshield.service.impl.ContactService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
