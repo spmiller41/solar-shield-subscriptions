@@ -1,7 +1,9 @@
 package com.powersolutions.solarshield.entity;
 
+import com.powersolutions.solarshield.dto.SquareInvoicePaymentRequest;
 import jakarta.persistence.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -13,16 +15,25 @@ public class Invoice {
     @Column(name = "id")
     private int id;
 
+    // FK -> Subscription table
     @Column(name = "subscription_id") private int subscriptionId;
+
     @Column(name = "order_id") private String orderId;
-    @Column(name = "event_id") private String eventId;
-    @Column(name = "amount") private double amount;
+    @Column(name = "amount") private BigDecimal amount;
     @Column(name = "currency") private String currency;
     @Column(name = "status") private String status;
-    @Column(name = "created_at") private LocalDateTime createdAt;
     @Column(name = "updated_at") private LocalDateTime updatedAt;
 
     public Invoice() {}
+
+    public Invoice(Subscription subscription, SquareInvoicePaymentRequest request) {
+        setSubscriptionId(subscription.getId());
+        setOrderId(request.getOrderId());
+        setAmount(request.getAmount());
+        setCurrency(request.getCurrency());
+        setStatus(request.getStatus());
+        setUpdatedAt(LocalDateTime.now());
+    }
 
     public int getId() { return id; }
 
@@ -36,17 +47,13 @@ public class Invoice {
 
     public void setOrderId(String orderId) { this.orderId = orderId; }
 
-    public String getEventId() { return eventId; }
-
-    public void setEventId(String eventId) { this.eventId = eventId; }
-
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 
     public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 
-    public double getAmount() { return amount; }
+    public BigDecimal getAmount() { return amount; }
 
-    public void setAmount(double amount) { this.amount = amount; }
+    public void setAmount(BigDecimal amount) { this.amount = amount; }
 
     public String getCurrency() { return currency; }
 
@@ -56,21 +63,15 @@ public class Invoice {
 
     public void setStatus(String status) { this.status = status; }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-
     @Override
     public String toString() {
         return "Invoice{" +
                 "id=" + id +
                 ", subscriptionId=" + subscriptionId +
                 ", orderId='" + orderId + '\'' +
-                ", eventId='" + eventId + '\'' +
                 ", amount=" + amount +
                 ", currency='" + currency + '\'' +
                 ", status='" + status + '\'' +
-                ", createdAt=" + createdAt +
                 ", updatedAt=" + updatedAt +
                 '}';
     }

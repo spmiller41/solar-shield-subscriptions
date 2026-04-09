@@ -1,5 +1,6 @@
 package com.powersolutions.solarshield.entity;
 
+import com.powersolutions.solarshield.dto.SquareInvoicePaymentRequest;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
@@ -18,6 +19,12 @@ public class PaymentBuffer {
     @Column(name = "created_at") private LocalDateTime createdAt;
 
     public PaymentBuffer() {}
+
+    public PaymentBuffer(SquareInvoicePaymentRequest request) {
+        setOrderId(request.getOrderId());
+        setStatus(request.getStatus());
+        setCreatedAt(LocalDateTime.now());
+    }
 
     public int getId() { return id; }
 
