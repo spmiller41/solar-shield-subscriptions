@@ -4,8 +4,8 @@ import com.powersolutions.solarshield.dto.FormIntakeRequest;
 import com.powersolutions.solarshield.entity.Contact;
 import com.powersolutions.solarshield.enums.SubscriptionResult;
 import com.powersolutions.solarshield.mapper.FormIntakeMapper;
-import com.powersolutions.solarshield.service.impl.AddressSubscriptionService;
-import com.powersolutions.solarshield.service.impl.ContactService;
+import com.powersolutions.solarshield.service.impl.AddressSubscriptionServiceImpl;
+import com.powersolutions.solarshield.service.impl.ContactServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,13 +19,13 @@ import java.util.Map;
 @RequestMapping("/api/form")
 public class FormIntakeController {
 
-    private final ContactService contactService;
-    private final AddressSubscriptionService addressSubscriptionService;
+    private final ContactServiceImpl contactServiceImpl;
+    private final AddressSubscriptionServiceImpl addressSubscriptionServiceImpl;
 
     @Autowired
-    public FormIntakeController(ContactService contactService, AddressSubscriptionService addressSubscriptionService) {
-        this.contactService = contactService;
-        this.addressSubscriptionService = addressSubscriptionService;
+    public FormIntakeController(ContactServiceImpl contactServiceImpl, AddressSubscriptionServiceImpl addressSubscriptionServiceImpl) {
+        this.contactServiceImpl = contactServiceImpl;
+        this.addressSubscriptionServiceImpl = addressSubscriptionServiceImpl;
     }
 
     @PostMapping(
@@ -35,8 +35,8 @@ public class FormIntakeController {
     )
     public void intake(@RequestParam Map<String, String> formParams) {
         FormIntakeRequest request = new FormIntakeMapper(formParams).getRequest();
-        Contact contact = contactService.upsertAndGet(new Contact(request));
-        SubscriptionResult result = addressSubscriptionService.handleAddressAndSubscription(request, contact);
+        Contact contact = contactServiceImpl.upsertAndGet(new Contact(request));
+        SubscriptionResult result = addressSubscriptionServiceImpl.handleAddressAndSubscription(request, contact);
 
         if (SubscriptionResult.PROCEED_TO_CHECKOUT.equals(result)) {
             System.out.println("Proceed to Square Checkout");

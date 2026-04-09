@@ -2,16 +2,17 @@ package com.powersolutions.solarshield.service.impl;
 
 import com.powersolutions.solarshield.entity.Contact;
 import com.powersolutions.solarshield.repo.ContactRepo;
+import com.powersolutions.solarshield.service.api.ContactService;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
 @Service
-public class ContactService {
+public class ContactServiceImpl implements ContactService {
 
     private final ContactRepo contactRepo;
 
-    public ContactService(ContactRepo contactRepo) {
+    public ContactServiceImpl(ContactRepo contactRepo) {
         this.contactRepo = contactRepo;
     }
 

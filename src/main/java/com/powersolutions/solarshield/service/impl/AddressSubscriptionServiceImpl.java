@@ -8,19 +8,20 @@ import com.powersolutions.solarshield.enums.SubscriptionResult;
 import com.powersolutions.solarshield.enums.SubscriptionStatus;
 import com.powersolutions.solarshield.repo.AddressRepo;
 import com.powersolutions.solarshield.repo.SubscriptionRepo;
+import com.powersolutions.solarshield.service.api.AddressSubscriptionService;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
-public class AddressSubscriptionService {
+public class AddressSubscriptionServiceImpl implements AddressSubscriptionService {
 
     private final AddressRepo addressRepository;
     private final SubscriptionRepo subscriptionRepository;
 
-    public AddressSubscriptionService(AddressRepo addressRepository,
-                                      SubscriptionRepo subscriptionRepository) {
+    public AddressSubscriptionServiceImpl(AddressRepo addressRepository,
+                                          SubscriptionRepo subscriptionRepository) {
         this.addressRepository = addressRepository;
         this.subscriptionRepository = subscriptionRepository;
     }
