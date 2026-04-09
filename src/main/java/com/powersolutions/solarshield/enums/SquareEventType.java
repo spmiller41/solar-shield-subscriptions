@@ -6,7 +6,8 @@ public enum SquareEventType {
     INVOICE_UPDATED("invoice.updated"),
     INVOICE_PAYMENT_MADE("invoice.payment_made"),
     PAYMENT_CREATED("payment.created"),
-    PAYMENT_UPDATED("payment.updated");
+    PAYMENT_UPDATED("payment.updated"),
+    INVOICE_SCHEDULED_CHARGE_FAILED("invoice.scheduled_charge_failed");
 
     private final String value;
 
