@@ -1,5 +1,6 @@
 package com.powersolutions.solarshield.entity;
 
+import com.powersolutions.solarshield.dto.SquareInvoicePaymentRequest;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
@@ -12,6 +13,11 @@ public class SquareWebhookEvent {
     @Column(name = "created_at") private LocalDateTime createdAt;
 
     public SquareWebhookEvent() {}
+
+    public SquareWebhookEvent(SquareInvoicePaymentRequest request) {
+        setEventId(request.getEventId());
+        setCreatedAt(LocalDateTime.now());
+    }
 
     public String getEventId() { return eventId; }
 
