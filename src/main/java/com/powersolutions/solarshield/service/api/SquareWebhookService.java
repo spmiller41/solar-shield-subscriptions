@@ -1,4 +1,4 @@
-package com.powersolutions.solarshield.service;
+package com.powersolutions.solarshield.service.api;
 
 import com.powersolutions.solarshield.dto.SquareInvoicePaymentRequest;
 
