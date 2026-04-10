@@ -6,6 +6,7 @@ import com.powersolutions.solarshield.enums.SubscriptionStatus;
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "subscription")
@@ -24,6 +25,7 @@ public class Subscription {
 
     @Enumerated(EnumType.STRING) @Column(name = "plan_tier") public PlanTier planTier;
     @Enumerated(EnumType.STRING) @Column(name = "subscription_status") public SubscriptionStatus subscriptionStatus;
+    @Column(name = "idempotency_key") public String idempotencyKey;
     @Column(name = "customer_subscription_id") public String customerSubscriptionId;
     @Column(name = "customerId") public String customerId;
     @Column(name = "email") public String email;
@@ -31,15 +33,18 @@ public class Subscription {
     @Column(name = "updated_at") public LocalDateTime updatedAt;
     @Column(name = "activated_at") public LocalDateTime activatedAt;
 
+
     public Subscription() {}
 
     public Subscription(FormIntakeRequest request, Contact contact, Address address, SubscriptionStatus status) {
         setContactId(contact.getId());
         setAddressId(address.getId());
+        setIdempotencyKey(UUID.randomUUID().toString());
         setPlanTier(request.getPlanTier());
         setSubscriptionStatus(status);
         setCreatedAt(LocalDateTime.now());
         setUpdatedAt(LocalDateTime.now());
+
     }
 
     public int getId() { return id; }
@@ -53,6 +58,10 @@ public class Subscription {
     public int getAddressId() { return addressId; }
 
     public void setAddressId(int addressId) { this.addressId = addressId; }
+
+    public String getIdempotencyKey() { return idempotencyKey; }
+
+    public void setIdempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; }
 
     public PlanTier getPlanTier() { return planTier; }
 
@@ -94,6 +103,7 @@ public class Subscription {
                 ", addressId=" + addressId +
                 ", planTier=" + planTier +
                 ", subscriptionStatus=" + subscriptionStatus +
+                ", idempotencyKey='" + idempotencyKey + '\'' +
                 ", customerSubscriptionId='" + customerSubscriptionId + '\'' +
                 ", customerId='" + customerId + '\'' +
                 ", email='" + email + '\'' +
