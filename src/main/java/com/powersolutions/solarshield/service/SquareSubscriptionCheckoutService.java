@@ -1,4 +1,4 @@
-package com.powersolutions.solarshield.service.impl;
+package com.powersolutions.solarshield.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -13,7 +13,8 @@ import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 
 @Service
 public class SquareSubscriptionCheckoutService {
@@ -38,12 +39,14 @@ public class SquareSubscriptionCheckoutService {
     @Value("${square.subscription.plan.platinum}")
     private String platinumPlanVariationId;
 
-    private final RestTemplate restTemplate;
-    private final ObjectMapper objectMapper;
+    @Value("${square.subscription.plan.test}")
+    private String testPlanVariationId;
 
-    public SquareSubscriptionCheckoutService(RestTemplate restTemplate, ObjectMapper objectMapper) {
+    private final RestTemplate restTemplate;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    public SquareSubscriptionCheckoutService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
-        this.objectMapper = objectMapper;
     }
 
     public SquareCheckoutResponse createSubscriptionPaymentLink(Subscription subscription,
@@ -91,22 +94,11 @@ public class SquareSubscriptionCheckoutService {
 
     private Map<String, Object> buildPayload(Subscription subscription, Contact contact) {
         Map<String, Object> body = new HashMap<>();
-        body.put("idempotency_key", UUID.randomUUID().toString());
-
-        body.put("quick_pay", buildQuickPay(subscription));
+        body.put("idempotency_key", subscription.getIdempotencyKey());
         body.put("checkout_options", buildCheckoutOptions(subscription));
         body.put("pre_populated_data", buildPrePopulatedData(contact));
         body.put("order", buildOrder(subscription, contact));
-
         return body;
-    }
-
-    private Map<String, Object> buildQuickPay(Subscription subscription) {
-        Map<String, Object> quickPay = new HashMap<>();
-        quickPay.put("name", buildPlanName(subscription.getPlanTier()));
-        quickPay.put("price_money", buildPriceMoney(subscription.getPlanTier()));
-        quickPay.put("location_id", locationId);
-        return quickPay;
     }
 
     private Map<String, Object> buildCheckoutOptions(Subscription subscription) {
@@ -132,8 +124,6 @@ public class SquareSubscriptionCheckoutService {
     private Map<String, Object> buildOrder(Subscription subscription, Contact contact) {
         Map<String, Object> order = new HashMap<>();
         order.put("location_id", locationId);
-
-        // Your local correlation key.
         order.put("reference_id", String.valueOf(subscription.getId()));
 
         Map<String, String> metadata = new HashMap<>();
@@ -143,14 +133,44 @@ public class SquareSubscriptionCheckoutService {
         metadata.put("customer_email", safe(contact.getEmail()));
         order.put("metadata", metadata);
 
+        // 🔥 THIS is what Square was screaming about
+        order.put("line_items", java.util.List.of(
+                buildLineItem(subscription.getPlanTier())
+        ));
+
         return order;
     }
 
-    private Map<String, Object> buildPriceMoney(PlanTier planTier) {
+    private long getAmountInCents(PlanTier planTier) {
+        return switch (planTier) {
+            case SILVER -> 995L;
+            case GOLD -> 1995L;
+            case PLATINUM -> 2995L;
+            case TEST -> 100L;
+        };
+    }
+
+    private String getPlanName(PlanTier planTier) {
+        return switch (planTier) {
+            case SILVER -> "Home Solar Shield - Silver";
+            case GOLD -> "Home Solar Shield - Gold";
+            case PLATINUM -> "Home Solar Shield - Platinum";
+            case TEST -> "Home Solar Shield - Test";
+        };
+    }
+
+    private Map<String, Object> buildLineItem(PlanTier planTier) {
+        Map<String, Object> lineItem = new HashMap<>();
+        lineItem.put("name", getPlanName(planTier));
+        lineItem.put("quantity", "1");
+
         Map<String, Object> priceMoney = new HashMap<>();
         priceMoney.put("amount", getAmountInCents(planTier));
         priceMoney.put("currency", "USD");
-        return priceMoney;
+
+        lineItem.put("base_price_money", priceMoney);
+
+        return lineItem;
     }
 
     private String getPlanVariationId(PlanTier planTier) {
@@ -158,22 +178,7 @@ public class SquareSubscriptionCheckoutService {
             case SILVER -> silverPlanVariationId;
             case GOLD -> goldPlanVariationId;
             case PLATINUM -> platinumPlanVariationId;
-        };
-    }
-
-    private long getAmountInCents(PlanTier planTier) {
-        return switch (planTier) {
-            case SILVER -> 1495L;
-            case GOLD -> 1995L;
-            case PLATINUM -> 2995L;
-        };
-    }
-
-    private String buildPlanName(PlanTier planTier) {
-        return switch (planTier) {
-            case SILVER -> "Home Solar Shield - Silver";
-            case GOLD -> "Home Solar Shield - Gold";
-            case PLATINUM -> "Home Solar Shield - Platinum";
+            case TEST -> testPlanVariationId;
         };
     }
 
@@ -181,7 +186,6 @@ public class SquareSubscriptionCheckoutService {
         return (node == null || node.isMissingNode() || node.isNull()) ? null : node.asText();
     }
 
-    private String safe(String value) {
-        return value == null ? "" : value;
-    }
+    private String safe(String value) { return value == null ? "" : value; }
+
 }
