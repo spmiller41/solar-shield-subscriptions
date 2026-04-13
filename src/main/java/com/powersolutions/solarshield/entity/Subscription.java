@@ -25,26 +25,24 @@ public class Subscription {
 
     @Enumerated(EnumType.STRING) @Column(name = "plan_tier") public PlanTier planTier;
     @Enumerated(EnumType.STRING) @Column(name = "subscription_status") public SubscriptionStatus subscriptionStatus;
-    @Column(name = "idempotency_key") public String idempotencyKey;
     @Column(name = "customer_subscription_id") public String customerSubscriptionId;
+    @Column(name = "square_order_id") public String squareOrderId;
     @Column(name = "customerId") public String customerId;
     @Column(name = "email") public String email;
     @Column(name = "created_at") public LocalDateTime createdAt;
     @Column(name = "updated_at") public LocalDateTime updatedAt;
     @Column(name = "activated_at") public LocalDateTime activatedAt;
-
+    @Column(name = "square_checkout_link") public String squareCheckoutLink;
 
     public Subscription() {}
 
     public Subscription(FormIntakeRequest request, Contact contact, Address address, SubscriptionStatus status) {
         setContactId(contact.getId());
         setAddressId(address.getId());
-        setIdempotencyKey(UUID.randomUUID().toString());
         setPlanTier(request.getPlanTier());
         setSubscriptionStatus(status);
         setCreatedAt(LocalDateTime.now());
         setUpdatedAt(LocalDateTime.now());
-
     }
 
     public int getId() { return id; }
@@ -59,10 +57,6 @@ public class Subscription {
 
     public void setAddressId(int addressId) { this.addressId = addressId; }
 
-    public String getIdempotencyKey() { return idempotencyKey; }
-
-    public void setIdempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; }
-
     public PlanTier getPlanTier() { return planTier; }
 
     public void setPlanTier(PlanTier planTier) { this.planTier = planTier; }
@@ -72,6 +66,10 @@ public class Subscription {
     public void setSubscriptionStatus(SubscriptionStatus subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
 
     public String getCustomerSubscriptionId() { return customerSubscriptionId; }
+
+    public String getSquareOrderId() { return squareOrderId; }
+
+    public void setSquareOrderId(String squareOrderId) { this.squareOrderId = squareOrderId; }
 
     public void setCustomerSubscriptionId(String customerSubscriptionId) { this.customerSubscriptionId = customerSubscriptionId; }
 
@@ -95,6 +93,10 @@ public class Subscription {
 
     public void setActivatedAt(LocalDateTime activatedAt) { this.activatedAt = activatedAt; }
 
+    public String getSquareCheckoutLink() { return squareCheckoutLink; }
+
+    public void setSquareCheckoutLink(String squareCheckoutLink) { this.squareCheckoutLink = squareCheckoutLink; }
+
     @Override
     public String toString() {
         return "Subscription{" +
@@ -103,13 +105,14 @@ public class Subscription {
                 ", addressId=" + addressId +
                 ", planTier=" + planTier +
                 ", subscriptionStatus=" + subscriptionStatus +
-                ", idempotencyKey='" + idempotencyKey + '\'' +
                 ", customerSubscriptionId='" + customerSubscriptionId + '\'' +
+                ", squareOrderId='" + squareOrderId + '\'' +
                 ", customerId='" + customerId + '\'' +
                 ", email='" + email + '\'' +
                 ", createdAt=" + createdAt +
                 ", updatedAt=" + updatedAt +
                 ", activatedAt=" + activatedAt +
+                ", squareCheckoutLink='" + squareCheckoutLink + '\'' +
                 '}';
     }
 
