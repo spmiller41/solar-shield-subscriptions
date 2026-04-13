@@ -6,6 +6,7 @@ import com.powersolutions.solarshield.dto.SquareCheckoutResponse;
 import com.powersolutions.solarshield.entity.Contact;
 import com.powersolutions.solarshield.entity.Subscription;
 import com.powersolutions.solarshield.enums.PlanTier;
+import com.powersolutions.solarshield.mapper.SquareCheckoutResponseMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +16,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class SquareSubscriptionCheckoutService {
@@ -49,8 +51,7 @@ public class SquareSubscriptionCheckoutService {
         this.restTemplate = restTemplate;
     }
 
-    public SquareCheckoutResponse createSubscriptionPaymentLink(Subscription subscription,
-                                                                Contact contact) {
+    public SquareCheckoutResponse createSubscriptionPaymentLink(Subscription subscription, Contact contact) {
         try {
             HttpHeaders headers = buildHeaders();
             Map<String, Object> requestBody = buildPayload(subscription, contact);
@@ -65,17 +66,13 @@ public class SquareSubscriptionCheckoutService {
                 return null;
             }
 
-            JsonNode root = objectMapper.readTree(response.getBody());
-            JsonNode paymentLink = root.path("payment_link");
-
-            String url = textOrNull(paymentLink.path("url"));
-            String orderId = textOrNull(paymentLink.path("order_id"));
-            String paymentLinkId = textOrNull(paymentLink.path("id"));
+            SquareCheckoutResponse checkoutResponse =
+                    new SquareCheckoutResponseMapper(response.getBody()).getResponse();
 
             logger.info("Created Square subscription checkout link. subscriptionId={}, orderId={}, paymentLinkId={}",
-                    subscription.getId(), orderId, paymentLinkId);
+                    subscription.getId(), checkoutResponse.getOrderId(), checkoutResponse.getPaymentLinkId());
 
-            return new SquareCheckoutResponse(url, orderId, paymentLinkId);
+            return checkoutResponse;
 
         } catch (Exception ex) {
             logger.error("Exception creating Square subscription payment link for subscriptionId={}: {}",
@@ -94,11 +91,35 @@ public class SquareSubscriptionCheckoutService {
 
     private Map<String, Object> buildPayload(Subscription subscription, Contact contact) {
         Map<String, Object> body = new HashMap<>();
-        body.put("idempotency_key", subscription.getIdempotencyKey());
+        body.put("idempotency_key", UUID.randomUUID().toString());
         body.put("checkout_options", buildCheckoutOptions(subscription));
         body.put("pre_populated_data", buildPrePopulatedData(contact));
-        body.put("order", buildOrder(subscription, contact));
+        body.put("quick_pay", buildQuickPay(subscription));
         return body;
+    }
+
+    private Map<String, Object> buildQuickPay(Subscription subscription) {
+        Map<String, Object> quickPay = new HashMap<>();
+
+        quickPay.put("name", getPlanName(subscription.getPlanTier()));
+        quickPay.put("price_money", Map.of(
+                "amount", getAmountInCents(subscription.getPlanTier()),
+                "currency", "USD"
+        ));
+        quickPay.put("location_id", locationId);
+
+        quickPay.put("description", getPlanDescription(subscription.getPlanTier()));
+
+        return quickPay;
+    }
+
+    private String getPlanDescription(PlanTier planTier) {
+        return switch (planTier) {
+            case SILVER -> "Annual solar panel cleaning and system inspection to keep your system running efficiently.";
+            case GOLD -> "Includes panel cleaning, system inspection, and priority service for any maintenance needs.";
+            case PLATINUM -> "Full-service plan with cleaning, inspection, priority service, and extended system support.";
+            case TEST -> "Test subscription plan for internal use.";
+        };
     }
 
     private Map<String, Object> buildCheckoutOptions(Subscription subscription) {
@@ -118,27 +139,16 @@ public class SquareSubscriptionCheckoutService {
             prePopulatedData.put("buyer_phone_number", contact.getPhone().trim());
         }
 
+        if (contact.getFirstName() != null && !contact.getFirstName().isBlank()
+                && contact.getLastName() != null && !contact.getLastName().isBlank()) {
+
+            prePopulatedData.put(
+                    "buyer_name",
+                    contact.getFirstName().trim() + " " + contact.getLastName().trim()
+            );
+        }
+
         return prePopulatedData;
-    }
-
-    private Map<String, Object> buildOrder(Subscription subscription, Contact contact) {
-        Map<String, Object> order = new HashMap<>();
-        order.put("location_id", locationId);
-        order.put("reference_id", String.valueOf(subscription.getId()));
-
-        Map<String, String> metadata = new HashMap<>();
-        metadata.put("local_subscription_id", String.valueOf(subscription.getId()));
-        metadata.put("plan_tier", String.valueOf(subscription.getPlanTier()));
-        metadata.put("local_contact_id", String.valueOf(subscription.getContactId()));
-        metadata.put("customer_email", safe(contact.getEmail()));
-        order.put("metadata", metadata);
-
-        // 🔥 THIS is what Square was screaming about
-        order.put("line_items", java.util.List.of(
-                buildLineItem(subscription.getPlanTier())
-        ));
-
-        return order;
     }
 
     private long getAmountInCents(PlanTier planTier) {
@@ -159,20 +169,6 @@ public class SquareSubscriptionCheckoutService {
         };
     }
 
-    private Map<String, Object> buildLineItem(PlanTier planTier) {
-        Map<String, Object> lineItem = new HashMap<>();
-        lineItem.put("name", getPlanName(planTier));
-        lineItem.put("quantity", "1");
-
-        Map<String, Object> priceMoney = new HashMap<>();
-        priceMoney.put("amount", getAmountInCents(planTier));
-        priceMoney.put("currency", "USD");
-
-        lineItem.put("base_price_money", priceMoney);
-
-        return lineItem;
-    }
-
     private String getPlanVariationId(PlanTier planTier) {
         return switch (planTier) {
             case SILVER -> silverPlanVariationId;
@@ -185,7 +181,5 @@ public class SquareSubscriptionCheckoutService {
     private String textOrNull(JsonNode node) {
         return (node == null || node.isMissingNode() || node.isNull()) ? null : node.asText();
     }
-
-    private String safe(String value) { return value == null ? "" : value; }
 
 }
