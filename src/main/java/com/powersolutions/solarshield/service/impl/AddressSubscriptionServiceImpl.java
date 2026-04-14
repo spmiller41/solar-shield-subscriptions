@@ -1,6 +1,7 @@
 package com.powersolutions.solarshield.service.impl;
 
 import com.powersolutions.solarshield.dto.FormIntakeRequest;
+import com.powersolutions.solarshield.dto.SubscriptionProcessingResult;
 import com.powersolutions.solarshield.entity.Address;
 import com.powersolutions.solarshield.entity.Contact;
 import com.powersolutions.solarshield.entity.Subscription;
@@ -26,28 +27,8 @@ public class AddressSubscriptionServiceImpl implements AddressSubscriptionServic
         this.subscriptionRepository = subscriptionRepository;
     }
 
-    /**
-     * Handles address lookup and subscription intake logic using a single subscription row per address.
-     * <p>
-     * Flow:
-     * 1. Normalize and find or create the address.
-     * 2. Look up the subscription for that address.
-     * 3. If the subscription is ACTIVE, block further processing.
-     * 4. If the subscription exists but is not ACTIVE, update the same row as PENDING_PAYMENT
-     *    with the latest contact and requested tier.
-     * 5. If no subscription exists for the address, create a new PENDING_PAYMENT subscription.
-     * <p>
-     * Notes:
-     * - Only one subscription record should exist per address.
-     * - ACTIVE subscriptions block self-service checkout.
-     * - Non-active subscriptions are reused as placeholders until payment is completed.
-     * - Final plan tier is determined by the Square webhook, not the initial request.
-     *
-     * @param request incoming normalized form data
-     * @param contact persisted contact associated with the request
-     * @return SubscriptionResult indicating whether checkout should continue or an active subscription already exists
-     */
-    public SubscriptionResult handleAddressAndSubscription(FormIntakeRequest request, Contact contact) {
+
+    public SubscriptionProcessingResult handleAddressAndSubscription(FormIntakeRequest request, Contact contact) {
         Address incomingAddress = new Address(request);
         normalizeAddress(incomingAddress);
 
@@ -64,7 +45,7 @@ public class AddressSubscriptionServiceImpl implements AddressSubscriptionServic
             Subscription subscription = existingSubscription.get();
 
             if (subscription.getSubscriptionStatus() == SubscriptionStatus.ACTIVE) {
-                return SubscriptionResult.ACTIVE_EXISTS;
+                return new SubscriptionProcessingResult(subscription, SubscriptionResult.ACTIVE_EXISTS);
             }
 
             subscription.setContactId(contact.getId());
@@ -75,7 +56,7 @@ public class AddressSubscriptionServiceImpl implements AddressSubscriptionServic
 
             subscriptionRepository.save(subscription);
 
-            return SubscriptionResult.PROCEED_TO_CHECKOUT;
+            return new SubscriptionProcessingResult(subscription, SubscriptionResult.PROCEED_TO_CHECKOUT);
         }
 
         Subscription newSubscription =
@@ -83,7 +64,7 @@ public class AddressSubscriptionServiceImpl implements AddressSubscriptionServic
 
         subscriptionRepository.save(newSubscription);
 
-        return SubscriptionResult.PROCEED_TO_CHECKOUT;
+        return new SubscriptionProcessingResult(newSubscription, SubscriptionResult.PROCEED_TO_CHECKOUT);
     }
 
     private void normalizeAddress(Address address) {

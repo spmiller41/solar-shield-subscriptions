@@ -1,6 +1,7 @@
 package com.powersolutions.solarshield.controller;
 
 import com.powersolutions.solarshield.dto.FormIntakeRequest;
+import com.powersolutions.solarshield.dto.SubscriptionProcessingResult;
 import com.powersolutions.solarshield.entity.Contact;
 import com.powersolutions.solarshield.enums.SubscriptionResult;
 import com.powersolutions.solarshield.mapper.FormIntakeMapper;
@@ -36,9 +37,9 @@ public class FormIntakeController {
     public void intake(@RequestParam Map<String, String> formParams) {
         FormIntakeRequest request = new FormIntakeMapper(formParams).getRequest();
         Contact contact = contactServiceImpl.upsertAndGet(new Contact(request));
-        SubscriptionResult result = addressSubscriptionServiceImpl.handleAddressAndSubscription(request, contact);
+        SubscriptionProcessingResult result = addressSubscriptionServiceImpl.handleAddressAndSubscription(request, contact);
 
-        if (SubscriptionResult.PROCEED_TO_CHECKOUT.equals(result)) {
+        if (SubscriptionResult.PROCEED_TO_CHECKOUT.equals(result.getResult())) {
             System.out.println("Proceed to Square Checkout");
         } else {
             System.out.println(
