@@ -1,4 +1,4 @@
-package com.powersolutions.solarshield.service;
+package com.powersolutions.solarshield.service.square;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
