@@ -43,6 +43,10 @@ public class SquareUpdateMapper {
                 mapPayment(dataObject.path("payment"));
                 break;
 
+            case SUBSCRIPTION_CREATED:
+                mapSubscription(dataObject.path("subscription"));
+                break;
+
             default:
                 throw new IllegalArgumentException("Unsupported Square webhook type: " + eventTypeValue);
         }
@@ -80,7 +84,6 @@ public class SquareUpdateMapper {
         request.setEmail(readNullableText(payment.path("buyer_email_address")));
         request.setStatus(readNullableText(payment.path("status")));
 
-        // These do not appear on payment webhook payloads
         request.setTitle(null);
         request.setSubscriptionId(null);
         request.setAutomaticPaymentSource(null);
@@ -89,6 +92,19 @@ public class SquareUpdateMapper {
         if (moneyNode != null) {
             setMoneyFields(moneyNode);
         }
+    }
+
+    private void mapSubscription(JsonNode subscription) {
+        request.setTitle(null);
+        request.setSubscriptionId(readNullableText(subscription.path("id")));
+        request.setOrderId(readNullableText(subscription.path("order_template_id")));
+        request.setCustomerId(readNullableText(subscription.path("customer_id")));
+        request.setEmail(null);
+        request.setAutomaticPaymentSource(null);
+        request.setStatus(readNullableText(subscription.path("status")));
+
+        request.setAmount(null);
+        request.setCurrency(null);
     }
 
     private JsonNode resolveInvoiceMoneyNode(JsonNode paymentRequest) {
