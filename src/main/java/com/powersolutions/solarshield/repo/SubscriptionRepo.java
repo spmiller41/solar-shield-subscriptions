@@ -10,6 +10,8 @@ public interface SubscriptionRepo extends JpaRepository<Subscription, Integer> {
 
     Optional<Subscription> findByAddressId(int addressId);
 
+    Optional<Subscription> findBySquareOrderId(String squareOrderId);
+
     Optional<Subscription> findByAddressIdAndSubscriptionStatus(int addressId, SubscriptionStatus subscriptionStatus);
 
 }
