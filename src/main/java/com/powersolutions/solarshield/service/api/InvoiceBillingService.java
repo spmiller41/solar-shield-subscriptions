@@ -8,7 +8,7 @@ public interface InvoiceBillingService {
 
     void processInvoiceWebhook(SquareInvoicePaymentRequest request);
 
-    Subscription ensureSubscriptionExists(SquareInvoicePaymentRequest request);
+    Subscription findSubscriptionByOrderId(SquareInvoicePaymentRequest request);
 
     Invoice upsertInvoice(SquareInvoicePaymentRequest request, Subscription subscription);
 
