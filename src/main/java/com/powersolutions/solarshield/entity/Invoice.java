@@ -16,7 +16,7 @@ public class Invoice {
     private int id;
 
     // FK -> Subscription table
-    @Column(name = "subscription_id") private int subscriptionId;
+    @Column(name = "subscription_id") private Integer subscriptionId;
 
     @Column(name = "order_id") private String orderId;
     @Column(name = "amount") private BigDecimal amount;
@@ -37,9 +37,9 @@ public class Invoice {
 
     public int getId() { return id; }
 
-    public void setId(int id) { this.id = id; }
+    public void setId(Integer id) { this.id = id; }
 
-    public int getSubscriptionId() { return subscriptionId; }
+    public Integer getSubscriptionId() { return subscriptionId; }
 
     public void setSubscriptionId(int subscriptionId) { this.subscriptionId = subscriptionId; }
 
