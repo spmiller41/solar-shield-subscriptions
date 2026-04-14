@@ -1,9 +1,16 @@
 package com.powersolutions.solarshield.service.api;
 
-import com.powersolutions.solarshield.dto.FormIntakeRequest;
+import com.powersolutions.solarshield.dto.SquareInvoicePaymentRequest;
+import com.powersolutions.solarshield.dto.SubscriptionProcessingResult;
+import com.powersolutions.solarshield.entity.Contact;
+import com.powersolutions.solarshield.entity.Subscription;
+
+import java.util.Optional;
 
 public interface SubscriptionLifecycleService {
 
-    public String getOrCreateCheckoutLink(FormIntakeRequest request);
+    public Optional<String> getOrCreateCheckoutLink(SubscriptionProcessingResult wrapper, Contact contact);
+
+    public Subscription finalizeSubscriptionFromWebhook(SquareInvoicePaymentRequest request);
 
 }
