@@ -13,6 +13,23 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * Service responsible for processing Square invoice and payment webhook events.
+ * <p>
+ * Handles creation and updates of Invoice records in an idempotent, order-safe manner.
+ * Supports out-of-order webhook delivery by creating invoices first and resolving
+ * subscription linkage later when available.
+ * <p>
+ * Responsibilities:
+ * - Resolve Subscription via order_id bridge when possible
+ * - Upsert Invoice records with forward-only status progression
+ * - Replay buffered payment updates once an invoice exists
+ * <p>
+ * Notes:
+ * - order_id is the primary anchor for invoices
+ * - subscription_id may be null initially and populated later
+ * - Safe against duplicate and unordered webhook events
+ */
 @Service
 public class InvoiceBillingServiceImpl implements InvoiceBillingService {
 
@@ -26,19 +43,95 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
         this.invoiceRepo = invoiceRepo;
     }
 
+    /**
+     * Orchestrates processing of an incoming Square invoice webhook.
+     * <p>
+     * Flow:
+     * 1. Attempt to resolve the associated Subscription using the order_id bridge.
+     * 2. Upsert the Invoice record:
+     *    - Create a new record if it does not exist
+     *    - Update existing record only if status advances
+     *    - Attach subscription_id if available
+     * 3. If order_id is present, replay any buffered payment events for this invoice.
+     * <p>
+     * Notes:
+     * - Invoice records are created regardless of subscription availability to support
+     *   out-of-order webhook delivery.
+     * - Subscription linkage may be completed later when subscription.created arrives.
+     * - Buffered payments are processed only after an invoice record exists.
+     * - Safe against duplicate and unordered webhook events.
+     *
+     * @param request parsed Square invoice webhook payload
+     */
     @Override
     public void processInvoiceWebhook(SquareInvoicePaymentRequest request) {
+        Subscription subscription = findSubscriptionByOrderId(request);
+        Invoice invoice = upsertInvoice(request, subscription);
 
+        if (request.getOrderId() == null) return;
+
+        handleBufferedPayments(request.getOrderId(), invoice);
     }
 
+    /**
+     * Attempts to retrieve a Subscription using the order_id bridge.
+     * Returns null if not found or not resolvable.
+     */
     @Override
-    public Subscription ensureSubscriptionExists(SquareInvoicePaymentRequest request) {
-        return null;
+    public Subscription findSubscriptionByOrderId(SquareInvoicePaymentRequest request) {
+        if (request.getOrderId() == null) return null;
+        return subscriptionRepo.findBySquareOrderId(request.getOrderId()).orElse(null);
     }
 
+    /**
+     * Creates or updates an Invoice record based on incoming Square webhook data.
+     * <p>
+     * Flow:
+     * 1. Attempt to find an existing Invoice by order_id.
+     * 2. If not found, create a new Invoice and populate:
+     *    - order_id
+     *    - initial status
+     *    - subscription_id (if available)
+     * 3. If found, compare incoming status against current status using rank-based evaluation.
+     * 4. Update the Invoice status only if the incoming status represents forward progression.
+     * 5. Persist and return the Invoice.
+     * <p>
+     * Notes:
+     * - order_id uniquely identifies an invoice cycle from Square.
+     * - Uses rank-based status comparison to prevent regression from out-of-order webhook events.
+     * - Safe against duplicate webhook delivery (idempotent behavior).
+     * - Subscription linkage is optional and may be resolved later if not available at creation time.
+     *
+     * @param request parsed Square invoice webhook payload
+     * @param subscription resolved Subscription (might be null)
+     * @return persisted Invoice entity (new or updated)
+     */
     @Override
     public Invoice upsertInvoice(SquareInvoicePaymentRequest request, Subscription subscription) {
-        return null;
+
+        String orderId = request.getOrderId();
+        String incomingStatus = request.getStatus();
+
+        Invoice invoice = invoiceRepo.findByOrderId(orderId)
+                .orElseGet(() -> {
+                    Invoice newInvoice = new Invoice();
+                    newInvoice.setOrderId(orderId);
+                    newInvoice.setStatus(incomingStatus);
+
+                    if (subscription != null) {
+                        newInvoice.setSubscriptionId(subscription.getId());
+                    }
+
+                    return newInvoice;
+                });
+
+        if (invoice.getId() != 0) {
+            if (shouldAdvanceStatus(incomingStatus, invoice.getStatus())) {
+                invoice.setStatus(incomingStatus);
+            }
+        }
+
+        return invoiceRepo.save(invoice);
     }
 
     /**
