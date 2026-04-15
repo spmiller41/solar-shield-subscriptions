@@ -6,6 +6,7 @@ import com.powersolutions.solarshield.dto.SubscriptionProcessingResult;
 import com.powersolutions.solarshield.entity.Contact;
 import com.powersolutions.solarshield.entity.Subscription;
 import com.powersolutions.solarshield.enums.SubscriptionResult;
+import com.powersolutions.solarshield.enums.SubscriptionStatus;
 import com.powersolutions.solarshield.repo.SubscriptionRepo;
 import com.powersolutions.solarshield.service.api.SubscriptionLifecycleService;
 import com.powersolutions.solarshield.service.square.SquareSubscriptionCheckoutService;
@@ -66,9 +67,26 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
         return Optional.of(response.getCheckoutLink());
     }
 
+    /**
+     * Finalizes a Subscription from the Square webhook by resolving via order_id,
+     * setting identifiers, and marking it ACTIVE.
+     *
+     * @param request parsed Square webhook payload
+     * @return updated Subscription or null if not found
+     */
     @Override
     public Subscription finalizeSubscriptionFromWebhook(SquareInvoicePaymentRequest request) {
-        return null;
+        return subscriptionRepo.findBySquareOrderId(request.getOrderId())
+                .map(sub -> {
+                    sub.setCustomerSubscriptionId(request.getSubscriptionId());
+                    sub.setCustomerId(request.getCustomerId());
+                    sub.setEmail(request.getEmail());
+                    sub.setSubscriptionStatus(SubscriptionStatus.ACTIVE);
+                    sub.setActivatedAt(LocalDateTime.now());
+                    sub.setUpdatedAt(LocalDateTime.now());
+                    return subscriptionRepo.save(sub);
+                })
+                .orElse(null);
     }
 
     private boolean hasCheckoutLink(Subscription sub) {
