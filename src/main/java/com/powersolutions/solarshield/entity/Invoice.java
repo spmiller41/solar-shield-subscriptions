@@ -18,6 +18,7 @@ public class Invoice {
     // FK -> Subscription table
     @Column(name = "subscription_id") private Integer subscriptionId;
 
+    @Column(name = "customer_subscription_id") private String customerSubscriptionId;
     @Column(name = "order_id") private String orderId;
     @Column(name = "amount") private BigDecimal amount;
     @Column(name = "currency") private String currency;
@@ -28,6 +29,7 @@ public class Invoice {
 
     public Invoice(Subscription subscription, SquareInvoicePaymentRequest request) {
         setSubscriptionId(subscription.getId());
+        setCustomerSubscriptionId(request.getSubscriptionId());
         setOrderId(request.getOrderId());
         setAmount(request.getAmount());
         setCurrency(request.getCurrency());
@@ -38,6 +40,8 @@ public class Invoice {
     public int getId() { return id; }
 
     public void setId(Integer id) { this.id = id; }
+
+    public void setCustomerSubscriptionId(String customerSubscriptionId) { this.customerSubscriptionId = customerSubscriptionId;}
 
     public Integer getSubscriptionId() { return subscriptionId; }
 
@@ -68,6 +72,7 @@ public class Invoice {
         return "Invoice{" +
                 "id=" + id +
                 ", subscriptionId=" + subscriptionId +
+                ", customerSubscriptionId='" + customerSubscriptionId + '\'' +
                 ", orderId='" + orderId + '\'' +
                 ", amount=" + amount +
                 ", currency='" + currency + '\'' +
