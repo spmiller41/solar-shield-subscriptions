@@ -11,6 +11,7 @@ public final class ZohoSolarShieldFields {
     public static final String ACCOUNT_STATUS = "Account_Status";
     public static final String ACTIVATED_AT = "Activated_At";
     public static final String PLAN = "Plan";
+    public static final String ACCOUNT_ID = "Account_ID";
 
     // Contact
     public static final String FIRST_NAME = "First_Name";
