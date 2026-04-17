@@ -18,21 +18,47 @@ public class Subscription {
     private int id;
 
     // FK
-    @Column(name = "contact_id") public int contactId;
+    @Column(name = "contact_id")
+    public int contactId;
 
     // FK
-    @Column(name = "address_id") public int addressId;
+    @Column(name = "address_id")
+    public int addressId;
 
-    @Enumerated(EnumType.STRING) @Column(name = "plan_tier") public PlanTier planTier;
-    @Enumerated(EnumType.STRING) @Column(name = "subscription_status") public SubscriptionStatus subscriptionStatus;
-    @Column(name = "customer_subscription_id") public String customerSubscriptionId;
-    @Column(name = "square_order_id") public String squareOrderId;
-    @Column(name = "customerId") public String customerId;
-    @Column(name = "email") public String email;
-    @Column(name = "created_at") public LocalDateTime createdAt;
-    @Column(name = "updated_at") public LocalDateTime updatedAt;
-    @Column(name = "activated_at") public LocalDateTime activatedAt;
-    @Column(name = "square_checkout_link") public String squareCheckoutLink;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "plan_tier")
+    public PlanTier planTier;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "subscription_status")
+    public SubscriptionStatus subscriptionStatus;
+
+    @Column(name = "customer_subscription_id")
+    public String customerSubscriptionId;
+
+    @Column(name = "square_order_id")
+    public String squareOrderId;
+
+    @Column(name = "customerId")
+    public String customerId;
+
+    @Column(name = "email")
+    public String email;
+
+    @Column(name = "created_at")
+    public LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    public LocalDateTime updatedAt;
+
+    @Column(name = "activated_at")
+    public LocalDateTime activatedAt;
+
+    @Column(name = "square_checkout_link")
+    public String squareCheckoutLink;
+
+    @Column(name = "external_uid", nullable = false, unique = true, updatable = false)
+    private String externalUid;
 
     public Subscription() {}
 
@@ -43,6 +69,13 @@ public class Subscription {
         setSubscriptionStatus(status);
         setCreatedAt(LocalDateTime.now());
         setUpdatedAt(LocalDateTime.now());
+    }
+
+    @PrePersist
+    private void prePersist() {
+        if (externalUid == null || externalUid.isBlank()) {
+            externalUid = UUID.randomUUID().toString();
+        }
     }
 
     public int getId() { return id; }
@@ -67,11 +100,11 @@ public class Subscription {
 
     public String getCustomerSubscriptionId() { return customerSubscriptionId; }
 
+    public void setCustomerSubscriptionId(String customerSubscriptionId) { this.customerSubscriptionId = customerSubscriptionId; }
+
     public String getSquareOrderId() { return squareOrderId; }
 
     public void setSquareOrderId(String squareOrderId) { this.squareOrderId = squareOrderId; }
-
-    public void setCustomerSubscriptionId(String customerSubscriptionId) { this.customerSubscriptionId = customerSubscriptionId; }
 
     public String getCustomerId() { return customerId; }
 
@@ -97,6 +130,8 @@ public class Subscription {
 
     public void setSquareCheckoutLink(String squareCheckoutLink) { this.squareCheckoutLink = squareCheckoutLink; }
 
+    public String getExternalUid() { return externalUid; }
+
     @Override
     public String toString() {
         return "Subscription{" +
@@ -113,7 +148,8 @@ public class Subscription {
                 ", updatedAt=" + updatedAt +
                 ", activatedAt=" + activatedAt +
                 ", squareCheckoutLink='" + squareCheckoutLink + '\'' +
+                ", externalUid='" + externalUid + '\'' +
                 '}';
     }
-
+    
 }
