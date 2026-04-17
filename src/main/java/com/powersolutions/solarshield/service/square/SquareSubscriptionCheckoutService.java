@@ -16,6 +16,10 @@ import org.springframework.web.client.RestTemplate;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Handles Square checkout link creation for subscription purchases, including payload assembly,
+ * response parsing, and basic API failure logging.
+ */
 @Service
 public class SquareSubscriptionCheckoutService {
 
@@ -48,6 +52,9 @@ public class SquareSubscriptionCheckoutService {
         this.restTemplate = restTemplate;
     }
 
+    /**
+     * Creates a Square-hosted checkout link for the given subscription and contact details.
+     */
     public SquareCheckoutResponse createSubscriptionPaymentLink(Subscription subscription, Contact contact) {
         String subscriptionKey = getSubscriptionKey(subscription);
 
