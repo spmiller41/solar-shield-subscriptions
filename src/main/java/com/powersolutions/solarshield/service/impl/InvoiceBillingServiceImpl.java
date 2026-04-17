@@ -9,29 +9,19 @@ import com.powersolutions.solarshield.repo.InvoiceRepo;
 import com.powersolutions.solarshield.repo.PendingPaymentRepo;
 import com.powersolutions.solarshield.repo.SubscriptionRepo;
 import com.powersolutions.solarshield.service.api.InvoiceBillingService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 
 /**
- * Service responsible for processing Square invoice and payment webhook events.
- * <p>
- * Handles creation and updates of Invoice records in an idempotent, order-safe manner.
- * Supports out-of-order webhook delivery by creating invoices first and resolving
- * subscription linkage later when available.
- * <p>
- * Responsibilities:
- * - Resolve Subscription via order_id bridge when possible
- * - Upsert Invoice records with forward-only status progression
- * - Replay buffered payment updates once an invoice exists
- * <p>
- * Notes:
- * - order_id is the primary anchor for invoices
- * - subscription_id may be null initially and populated later
- * - Safe against duplicate and unordered webhook events
+ * Applies Square invoice events to local invoices and replays buffered payment updates when needed.
  */
 @Service
 public class InvoiceBillingServiceImpl implements InvoiceBillingService {
+
+    private static final Logger logger = LoggerFactory.getLogger(InvoiceBillingServiceImpl.class);
 
     private final PendingPaymentRepo paymentBuffer;
     private final SubscriptionRepo subscriptionRepo;
@@ -44,38 +34,24 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
     }
 
     /**
-     * Orchestrates processing of an incoming Square invoice webhook.
-     * <p>
-     * Flow:
-     * 1. Attempt to resolve the associated Subscription using the order_id bridge.
-     * 2. Upsert the Invoice record:
-     *    - Create a new record if it does not exist
-     *    - Update existing record only if status advances
-     *    - Attach subscription_id if available
-     * 3. If order_id is present, replay any buffered payment events for this invoice.
-     * <p>
-     * Notes:
-     * - Invoice records are created regardless of subscription availability to support
-     *   out-of-order webhook delivery.
-     * - Subscription linkage may be completed later when subscription.created arrives.
-     * - Buffered payments are processed only after an invoice record exists.
-     * - Safe against duplicate and unordered webhook events.
-     *
-     * @param request parsed Square invoice webhook payload
+     * Resolves the subscription, upserts the invoice, and then replays any buffered payments.
      */
     @Override
     public void processInvoiceWebhook(SquareInvoicePaymentRequest request) {
+        if (request.getOrderId() == null || request.getOrderId().isBlank()) {
+            logger.warn("Skipping invoice webhook eventId={} because orderId is missing. eventType={}",
+                    request.getEventId(), request.getEventType());
+            return;
+        }
+
         Subscription subscription = findSubscriptionByOrderId(request);
         Invoice invoice = upsertInvoice(request, subscription);
-
-        if (request.getOrderId() == null) return;
 
         handleBufferedPayments(request.getOrderId(), invoice);
     }
 
     /**
-     * Attempts to retrieve a Subscription using the order_id bridge.
-     * Returns null if not found or not resolvable.
+     * Resolves the subscription tied to the webhook order id, if one exists.
      */
     @Override
     public Subscription findSubscriptionByOrderId(SquareInvoicePaymentRequest request) {
@@ -84,27 +60,7 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
     }
 
     /**
-     * Creates or updates an Invoice record based on incoming Square webhook data.
-     * <p>
-     * Flow:
-     * 1. Attempt to find an existing Invoice by order_id.
-     * 2. If not found, create a new Invoice and populate:
-     *    - order_id
-     *    - initial status
-     *    - subscription_id (if available)
-     * 3. If found, compare incoming status against current status using rank-based evaluation.
-     * 4. Update the Invoice status only if the incoming status represents forward progression.
-     * 5. Persist and return the Invoice.
-     * <p>
-     * Notes:
-     * - order_id uniquely identifies an invoice cycle from Square.
-     * - Uses rank-based status comparison to prevent regression from out-of-order webhook events.
-     * - Safe against duplicate webhook delivery (idempotent behavior).
-     * - Subscription linkage is optional and may be resolved later if not available at creation time.
-     *
-     * @param request parsed Square invoice webhook payload
-     * @param subscription resolved Subscription (might be null)
-     * @return persisted Invoice entity (new or updated)
+     * Creates the invoice if missing or advances its status when the incoming event is newer.
      */
     @Override
     public Invoice upsertInvoice(SquareInvoicePaymentRequest request, Subscription subscription) {
@@ -135,19 +91,7 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
     }
 
     /**
-     * Replays any buffered payment events for the given order after an invoice has been created.
-     * <p>
-     * Flow:
-     * 1. Retrieve all buffered payments for the order_id.
-     * 2. Determine the highest-rank payment status from the buffered events.
-     * 3. Compare the strongest buffered status against the current invoice status.
-     * 4. Update the invoice only if the buffered status represents a forward progression.
-     * 5. Delete all buffered payments for the order once processed.
-     * <p>
-     * Notes:
-     * - Uses rank-based evaluation to avoid applying stale or out-of-order payment updates.
-     * - Processes only the most authoritative buffered state rather than applying updates sequentially.
-     * - Safe against duplicate or unordered webhook delivery.
+     * Applies the strongest buffered payment status for the order and clears the buffer.
      */
     @Override
     public void handleBufferedPayments(String orderId, Invoice invoice) {
@@ -176,15 +120,7 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
     }
 
     /**
-     * Determines whether an incoming billing status should replace the current status.
-     * <p>
-     * Uses rank-based comparison to enforce forward-only state transitions:
-     * - Higher rank -> update allowed
-     * - Lower or equal rank -> ignored
-     * <p>
-     * Notes:
-     * - Safely handles unknown or null values by mapping them to UNKNOWN (-1).
-     * - Prevents regression from successful states (e.g., PAID -> FAILED).
+     * Returns true when the incoming billing status outranks the current stored status.
      */
     @Override
     public boolean shouldAdvanceStatus(String incomingStatus, String currentStatus) {

@@ -3,12 +3,19 @@ package com.powersolutions.solarshield.service.impl;
 import com.powersolutions.solarshield.entity.Contact;
 import com.powersolutions.solarshield.repo.ContactRepo;
 import com.powersolutions.solarshield.service.api.ContactService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
+/**
+ * Upserts contact records from intake data using phone first, then email, as lookup keys.
+ */
 @Service
 public class ContactServiceImpl implements ContactService {
+
+    private static final Logger logger = LoggerFactory.getLogger(ContactServiceImpl.class);
 
     private final ContactRepo contactRepo;
 
@@ -17,23 +24,10 @@ public class ContactServiceImpl implements ContactService {
     }
 
     /**
-     * Upserts a Contact based on incoming data.
-     * <p>
-     * Flow:
-     * 1. Attempt to find an existing contact by phone (primary identifier).
-     * 2. If not found, attempt lookup by email (secondary identifier).
-     * 3. If a match is found, update mutable fields (name, email, phone) and persist.
-     * 4. If no match exists, create a new contact record.
-     * <p>
-     * Notes:
-     * - Phone match takes precedence over email.
-     * - Incoming data is treated as the latest source of truth for mutable fields.
-     * - Ensures a single, up-to-date contact record per unique identity.
-     *
-     * @param incoming normalized contact data from form intake
-     * @return persisted Contact (existing updated or newly created)
+     * Returns the existing contact for the incoming identity or creates a new one.
      */
     public Contact upsertAndGet(Contact incoming) {
+        logger.info("Upserting contact using phone={} email={}", incoming.getPhone(), incoming.getEmail());
 
         return contactRepo.findByPhone(incoming.getPhone())
                 .map(existing -> updateAndSave(existing, incoming))
@@ -44,7 +38,11 @@ public class ContactServiceImpl implements ContactService {
                 .orElseGet(() -> createNew(incoming));
     }
 
+    /**
+     * Copies mutable intake fields onto an existing contact and persists the update.
+     */
     private Contact updateAndSave(Contact existing, Contact incoming) {
+        logger.info("Updating existing contact id={} with latest intake data", existing.getId());
         existing.setFirstName(incoming.getFirstName());
         existing.setLastName(incoming.getLastName());
         existing.setEmail(incoming.getEmail());
@@ -54,11 +52,17 @@ public class ContactServiceImpl implements ContactService {
         return contactRepo.save(existing);
     }
 
+    /**
+     * Initializes timestamps and persists a brand-new contact row.
+     */
     private Contact createNew(Contact incoming) {
         incoming.setCreateAt(LocalDateTime.now());
         incoming.setUpdatedAt(LocalDateTime.now());
 
-        return contactRepo.save(incoming);
+        Contact savedContact = contactRepo.save(incoming);
+        logger.info("Created new contact id={} phone={} email={}",
+                savedContact.getId(), savedContact.getPhone(), savedContact.getEmail());
+        return savedContact;
     }
 
 }

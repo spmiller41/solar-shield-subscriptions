@@ -1,35 +1,60 @@
 package com.powersolutions.solarshield.service.impl;
 
 import com.powersolutions.solarshield.dto.SquareInvoicePaymentRequest;
-import com.powersolutions.solarshield.entity.SquareWebhookEvent;
-import com.powersolutions.solarshield.repo.SquareWebhookEventRepo;
+import com.powersolutions.solarshield.service.api.InvoiceBillingService;
+import com.powersolutions.solarshield.service.api.PaymentBillingService;
+import com.powersolutions.solarshield.service.api.SquareEventService;
 import com.powersolutions.solarshield.service.api.SquareWebhookService;
+import com.powersolutions.solarshield.service.api.SubscriptionLifecycleService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Routes validated Square webhook events to the correct billing or subscription handler.
+ */
 @Service
 public class SquareWebhookServiceImpl implements SquareWebhookService {
 
-    private final SquareEventServiceImpl squareEventService;
-    private final InvoiceBillingServiceImpl invoiceBillingService;
-    private final PaymentBillingServiceImpl paymentBillingService;
+    private static final Logger logger = LoggerFactory.getLogger(SquareWebhookServiceImpl.class);
 
-    public SquareWebhookServiceImpl(SquareEventServiceImpl squareEventService,
-                                    InvoiceBillingServiceImpl invoiceBillingService,
-                                    PaymentBillingServiceImpl paymentBillingService) {
+    private final SquareEventService squareEventService;
+    private final InvoiceBillingService invoiceBillingService;
+    private final PaymentBillingService paymentBillingService;
+    private final SubscriptionLifecycleService subscriptionLifecycleService;
+
+    public SquareWebhookServiceImpl(SquareEventService squareEventService,
+                                    InvoiceBillingService invoiceBillingService,
+                                    PaymentBillingService paymentBillingService,
+                                    SubscriptionLifecycleService subscriptionLifecycleService) {
         this.squareEventService = squareEventService;
         this.invoiceBillingService = invoiceBillingService;
         this.paymentBillingService = paymentBillingService;
+        this.subscriptionLifecycleService = subscriptionLifecycleService;
     }
 
+    /**
+     * Validates, de-duplicates, and routes a single Square webhook event within one transaction.
+     */
     @Override
+    @Transactional
     public void handleWebhook(SquareInvoicePaymentRequest request) {
+        validateWebhookRequest(request);
+        String eventId = request.getEventId();
 
-        if (squareEventService.hasProcessed(request.getEventId())) return;
+        if (squareEventService.hasProcessed(eventId)) {
+            logger.info("Skipping duplicate Square webhook eventId={} eventType={} orderId={}",
+                    eventId, request.getEventType(), request.getOrderId());
+            return;
+        }
 
-        // route
+        logger.info("Processing Square webhook eventId={} eventType={} orderId={}",
+                eventId, request.getEventType(), request.getOrderId());
+
         switch (request.getEventType()) {
             case SUBSCRIPTION_CREATED:
-                // call SquareWebhookService
+                subscriptionLifecycleService.finalizeSubscriptionFromWebhook(request);
                 break;
 
             case INVOICE_CREATED:
@@ -46,6 +71,25 @@ public class SquareWebhookServiceImpl implements SquareWebhookService {
         }
 
         squareEventService.recordProcessedEvent(request);
+        logger.info("Completed Square webhook eventId={} eventType={} orderId={}",
+                eventId, request.getEventType(), request.getOrderId());
+    }
+
+    /**
+     * Ensures the router has the minimum fields required to process a webhook safely.
+     */
+    private void validateWebhookRequest(SquareInvoicePaymentRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Square webhook request is required");
+        }
+
+        if (request.getEventId() == null || request.getEventId().isBlank()) {
+            throw new IllegalArgumentException("Square webhook eventId is required");
+        }
+
+        if (request.getEventType() == null) {
+            throw new IllegalArgumentException("Square webhook eventType is required");
+        }
     }
 
 }

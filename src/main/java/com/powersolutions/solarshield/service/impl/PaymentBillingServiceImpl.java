@@ -7,29 +7,20 @@ import com.powersolutions.solarshield.enums.SquareBillingStatus;
 import com.powersolutions.solarshield.repo.InvoiceRepo;
 import com.powersolutions.solarshield.repo.PendingPaymentRepo;
 import com.powersolutions.solarshield.service.api.PaymentBillingService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
 
 /**
- * Service responsible for processing Square payment webhook events.
- * <p>
- * Handles applying payment updates to existing Invoice records or buffering
- * events when the corresponding invoice is not yet available.
- * <p>
- * Responsibilities:
- * - Route payment events to Invoice when possible
- * - Buffer out-of-order payment events for later reconciliation
- * - Enforce forward-only billing status transitions
- * <p>
- * Notes:
- * - order_id is used to locate the target Invoice
- * - Buffered payments are replayed once the Invoice is created
- * - Safe against duplicate and unordered webhook delivery
+ * Applies Square payment events to invoices or buffers them until the invoice exists.
  */
 @Service
 public class PaymentBillingServiceImpl implements PaymentBillingService {
+
+    private static final Logger logger = LoggerFactory.getLogger(PaymentBillingServiceImpl.class);
 
     private final PendingPaymentRepo pendingPaymentRepo;
     private final InvoiceRepo invoiceRepo;
@@ -40,65 +31,63 @@ public class PaymentBillingServiceImpl implements PaymentBillingService {
     }
 
     /**
-     * Processes an incoming payment webhook event.
-     * <p>
-     * Flow:
-     * 1. Attempt to locate the Invoice by order_id.
-     * 2. If found, apply the payment update to the Invoice.
-     * 3. If not found, buffer the payment for later processing.
-     *
-     * @param request parsed Square webhook payload
+     * Routes the payment event to an existing invoice or buffers it for later replay.
      */
     @Override
     public void processPaymentWebhook(SquareInvoicePaymentRequest request) {
+        if (request.getOrderId() == null || request.getOrderId().isBlank()) {
+            logger.warn("Skipping payment webhook eventId={} because orderId is missing. eventType={}",
+                    request.getEventId(), request.getEventType());
+            return;
+        }
+
         Optional<Invoice> optInvoice = invoiceRepo.findByOrderId(request.getOrderId());
 
         if (optInvoice.isPresent()) {
+            logger.info("Applying payment webhook eventId={} to invoice orderId={} status={}",
+                    request.getEventId(), request.getOrderId(), request.getStatus());
             applyPaymentToInvoice(request, optInvoice.get());
             return;
         }
 
+        logger.info("Buffering payment webhook eventId={} for unresolved orderId={} status={}",
+                request.getEventId(), request.getOrderId(), request.getStatus());
         bufferPayment(request);
     }
 
     /**
-     * Buffers a payment event for later processing when the Invoice is not yet available.
-     *
-     * @param request parsed Square webhook payload
+     * Stores the payment event until invoice processing can replay it.
      */
     @Override
     public void bufferPayment(SquareInvoicePaymentRequest request) {
         pendingPaymentRepo.save(new PaymentBuffer(request));
+        logger.info("Buffered payment webhook eventId={} for orderId={} status={}",
+                request.getEventId(), request.getOrderId(), request.getStatus());
     }
 
     /**
-     * Applies a payment update to an existing Invoice if the incoming status represents
-     * forward progression.
-     * <p>
-     * Updates the Invoice status and timestamp only if the new status has a higher rank.
-     *
-     * @param request parsed Square webhook payload
-     * @param invoice target Invoice to update
+     * Advances the invoice when the incoming payment status outranks the stored one.
      */
     @Override
     public void applyPaymentToInvoice(SquareInvoicePaymentRequest request, Invoice invoice) {
         String incomingStatus = request.getStatus();
 
         if (shouldAdvanceStatus(incomingStatus, invoice.getStatus())) {
+            String previousStatus = invoice.getStatus();
             invoice.setStatus(incomingStatus);
             invoice.setUpdatedAt(LocalDateTime.now());
             invoiceRepo.save(invoice);
+            logger.info("Updated invoice orderId={} from status {} to {} via payment eventId={}",
+                    invoice.getOrderId(), previousStatus, incomingStatus, request.getEventId());
+            return;
         }
+
+        logger.info("Ignored stale payment webhook eventId={} for orderId={}. currentStatus={}, incomingStatus={}",
+                request.getEventId(), invoice.getOrderId(), invoice.getStatus(), incomingStatus);
     }
 
     /**
-     * Determines whether an incoming billing status should replace the current status.
-     * <p>
-     * Uses rank-based comparison to enforce forward-only state transitions.
-     *
-     * @param incomingStatus new status from webhook
-     * @param currentStatus current status stored on the Invoice
-     * @return true if the incoming status represents forward progression
+     * Returns true when the incoming billing status outranks the current stored status.
      */
     @Override
     public boolean shouldAdvanceStatus(String incomingStatus, String currentStatus) {

@@ -10,13 +10,20 @@ import com.powersolutions.solarshield.enums.SubscriptionStatus;
 import com.powersolutions.solarshield.repo.AddressRepo;
 import com.powersolutions.solarshield.repo.SubscriptionRepo;
 import com.powersolutions.solarshield.service.api.AddressSubscriptionService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+/**
+ * Resolves an intake address to a single subscription row and decides whether checkout can proceed.
+ */
 @Service
 public class AddressSubscriptionServiceImpl implements AddressSubscriptionService {
+
+    private static final Logger logger = LoggerFactory.getLogger(AddressSubscriptionServiceImpl.class);
 
     private final AddressRepo addressRepository;
     private final SubscriptionRepo subscriptionRepository;
@@ -28,29 +35,7 @@ public class AddressSubscriptionServiceImpl implements AddressSubscriptionServic
     }
 
     /**
-     * Handles address lookup and subscription intake using a single subscription row per address.
-     * <p>
-     * Flow:
-     * 1. Normalize and find or create the address.
-     * 2. Look up the subscription for that address.
-     * 3. If the subscription is ACTIVE, return the existing row and block checkout.
-     * 4. If the subscription exists but is not ACTIVE, reuse the same row as PENDING_PAYMENT:
-     *    - update contact and requested tier
-     *    - reset activation state
-     *    - clear any stale checkout link/order data (for INACTIVE reuse)
-     * 5. If no subscription exists for the address, create a new PENDING_PAYMENT subscription.
-     * 6. Return both the resolved Subscription and the resulting intake decision.
-     * <p>
-     * Notes:
-     * - Only one subscription record should exist per address.
-     * - ACTIVE subscriptions block self-service checkout.
-     * - INACTIVE subscriptions are reactivated as PENDING_PAYMENT and receive a fresh checkout link.
-     * - The returned Subscription provides the caller with the row needed for checkout-link generation.
-     * - Final plan tier is determined by the Square webhook, not the initial request.
-     *
-     * @param request incoming normalized form data
-     * @param contact persisted contact associated with the request
-     * @return wrapper containing the resolved Subscription and whether checkout should proceed
+     * Finds or creates the address, then reuses or creates the subscription row tied to it.
      */
     public SubscriptionProcessingResult handleAddressAndSubscription(FormIntakeRequest request, Contact contact) {
         Address incomingAddress = new Address(request);
@@ -60,7 +45,12 @@ public class AddressSubscriptionServiceImpl implements AddressSubscriptionServic
                         incomingAddress.getStreet(),
                         incomingAddress.getCity(),
                         incomingAddress.getZip())
-                .orElseGet(() -> addressRepository.save(incomingAddress));
+                .orElseGet(() -> {
+                    Address savedAddress = addressRepository.save(incomingAddress);
+                    logger.info("Created new address id={} street={} city={} zip={}",
+                            savedAddress.getId(), savedAddress.getStreet(), savedAddress.getCity(), savedAddress.getZip());
+                    return savedAddress;
+                });
 
         Optional<Subscription> existingSubscription =
                 subscriptionRepository.findByAddressId(address.getId());
@@ -69,6 +59,8 @@ public class AddressSubscriptionServiceImpl implements AddressSubscriptionServic
             Subscription subscription = existingSubscription.get();
 
             if (subscription.getSubscriptionStatus() == SubscriptionStatus.ACTIVE) {
+                logger.info("Blocked checkout because active subscriptionId={} already exists for addressId={}",
+                        subscription.getId(), address.getId());
                 return new SubscriptionProcessingResult(subscription, SubscriptionResult.ACTIVE_EXISTS);
             }
 
@@ -83,6 +75,8 @@ public class AddressSubscriptionServiceImpl implements AddressSubscriptionServic
             subscription.setSquareOrderId(null);
 
             subscriptionRepository.save(subscription);
+            logger.info("Reused subscriptionId={} for addressId={} and reset it to PENDING_PAYMENT",
+                    subscription.getId(), address.getId());
 
             return new SubscriptionProcessingResult(subscription, SubscriptionResult.PROCEED_TO_CHECKOUT);
         }
@@ -91,16 +85,24 @@ public class AddressSubscriptionServiceImpl implements AddressSubscriptionServic
                 new Subscription(request, contact, address, SubscriptionStatus.PENDING_PAYMENT);
 
         subscriptionRepository.save(newSubscription);
+        logger.info("Created new subscriptionId={} for addressId={} contactId={} with status={}",
+                newSubscription.getId(), address.getId(), contact.getId(), newSubscription.getSubscriptionStatus());
 
         return new SubscriptionProcessingResult(newSubscription, SubscriptionResult.PROCEED_TO_CHECKOUT);
     }
 
+    /**
+     * Normalizes the address fields used for lookup so repeat submissions hit the same row.
+     */
     private void normalizeAddress(Address address) {
         address.setStreet(normalize(address.getStreet()));
         address.setCity(normalize(address.getCity()));
         address.setZip(address.getZip() == null ? null : address.getZip().trim());
     }
 
+    /**
+     * Trims and uppercases a lookup field while preserving null values.
+     */
     private String normalize(String value) { return value == null ? null : value.trim().toUpperCase(); }
 
 }
