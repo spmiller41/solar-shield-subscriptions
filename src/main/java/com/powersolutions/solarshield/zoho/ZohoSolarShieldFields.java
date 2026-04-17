@@ -6,6 +6,9 @@ public final class ZohoSolarShieldFields {
         // prevent instantiation
     }
 
+    // Zoho Data Wrapper
+    public static final String DATA = "data";
+
     // Account / Core
     public static final String NAME = "Name";
     public static final String ACCOUNT_STATUS = "Account_Status";
