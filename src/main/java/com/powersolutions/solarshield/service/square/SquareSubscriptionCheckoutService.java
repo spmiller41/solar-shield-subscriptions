@@ -1,7 +1,5 @@
 package com.powersolutions.solarshield.service.square;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.powersolutions.solarshield.dto.SquareCheckoutResponse;
 import com.powersolutions.solarshield.entity.Contact;
 import com.powersolutions.solarshield.entity.Subscription;
@@ -12,11 +10,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 public class SquareSubscriptionCheckoutService {
@@ -45,13 +43,14 @@ public class SquareSubscriptionCheckoutService {
     private String testPlanVariationId;
 
     private final RestTemplate restTemplate;
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public SquareSubscriptionCheckoutService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
     }
 
     public SquareCheckoutResponse createSubscriptionPaymentLink(Subscription subscription, Contact contact) {
+        String subscriptionKey = getSubscriptionKey(subscription);
+
         try {
             HttpHeaders headers = buildHeaders();
             Map<String, Object> requestBody = buildPayload(subscription, contact);
@@ -61,22 +60,47 @@ public class SquareSubscriptionCheckoutService {
                     restTemplate.postForEntity(squareApiUrl, entity, String.class);
 
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-                logger.error("Failed to create Square subscription payment link. Status: {}, Body: {}",
-                        response.getStatusCode(), response.getBody());
+                logger.error(
+                        "Square checkout link creation failed for subscriptionKey {} with status {} and body {}",
+                        subscriptionKey,
+                        response.getStatusCode(),
+                        response.getBody()
+                );
                 return null;
             }
 
-            SquareCheckoutResponse checkoutResponse =
-                    new SquareCheckoutResponseMapper(response.getBody()).getResponse();
+            SquareCheckoutResponse checkoutResponse = SquareCheckoutResponseMapper.fromJson(response.getBody());
 
-            logger.info("Created Square subscription checkout link. subscriptionId={}, orderId={}, paymentLinkId={}",
-                    subscription.getId(), checkoutResponse.getOrderId(), checkoutResponse.getPaymentLinkId());
+            if (checkoutResponse.getCheckoutLink() == null || checkoutResponse.getCheckoutLink().isBlank()) {
+                logger.error(
+                        "Square checkout response missing checkout link for subscriptionKey {}. Response body: {}",
+                        subscriptionKey,
+                        response.getBody()
+                );
+                return null;
+            }
+
+            logger.info(
+                    "Created Square subscription checkout link for subscriptionKey {}. orderId={}, paymentLinkId={}",
+                    subscriptionKey,
+                    checkoutResponse.getOrderId(),
+                    checkoutResponse.getPaymentLinkId()
+            );
 
             return checkoutResponse;
 
+        } catch (HttpStatusCodeException ex) {
+            logger.error(
+                    "Square checkout request failed for subscriptionKey {} with status {} and response {}",
+                    subscriptionKey,
+                    ex.getStatusCode(),
+                    ex.getResponseBodyAsString(),
+                    ex
+            );
+            return null;
         } catch (Exception ex) {
-            logger.error("Exception creating Square subscription payment link for subscriptionId={}: {}",
-                    subscription.getId(), ex.getMessage(), ex);
+            logger.error("Exception creating Square subscription payment link for subscriptionKey {}",
+                    subscriptionKey, ex);
             return null;
         }
     }
@@ -91,7 +115,7 @@ public class SquareSubscriptionCheckoutService {
 
     private Map<String, Object> buildPayload(Subscription subscription, Contact contact) {
         Map<String, Object> body = new HashMap<>();
-        body.put("idempotency_key", UUID.randomUUID().toString());
+        body.put("idempotency_key", buildIdempotencyKey(subscription));
         body.put("checkout_options", buildCheckoutOptions(subscription));
         body.put("pre_populated_data", buildPrePopulatedData(contact));
         body.put("quick_pay", buildQuickPay(subscription));
@@ -178,8 +202,16 @@ public class SquareSubscriptionCheckoutService {
         };
     }
 
-    private String textOrNull(JsonNode node) {
-        return (node == null || node.isMissingNode() || node.isNull()) ? null : node.asText();
+    private String buildIdempotencyKey(Subscription subscription) {
+        return "subscription-checkout-" + getSubscriptionKey(subscription);
+    }
+
+    private String getSubscriptionKey(Subscription subscription) {
+        if (subscription.getExternalUid() != null && !subscription.getExternalUid().isBlank()) {
+            return subscription.getExternalUid();
+        }
+
+        return String.valueOf(subscription.getId());
     }
 
 }

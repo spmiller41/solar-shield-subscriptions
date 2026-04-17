@@ -5,24 +5,36 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.powersolutions.solarshield.dto.SquareCheckoutResponse;
 
-public class SquareCheckoutResponseMapper {
+public final class SquareCheckoutResponseMapper {
 
-    private final SquareCheckoutResponse response;
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    public SquareCheckoutResponseMapper(String json) throws JsonProcessingException {
-        JsonNode root = new ObjectMapper().readTree(json);
+    private SquareCheckoutResponseMapper() {}
+
+    public static SquareCheckoutResponse fromJson(String json) throws JsonProcessingException {
+        JsonNode root = OBJECT_MAPPER.readTree(json);
         JsonNode paymentLink = root.path("payment_link");
 
-        this.response = new SquareCheckoutResponse(
-                readNullableText(paymentLink.path("url")),
-                readNullableText(paymentLink.path("order_id")),
-                readNullableText(paymentLink.path("id"))
+        if (paymentLink.isMissingNode() || paymentLink.isNull()) {
+            throw new IllegalArgumentException("Square checkout response is missing payment_link");
+        }
+
+        return new SquareCheckoutResponse(
+                readRequiredText(paymentLink, "url"),
+                readRequiredText(paymentLink, "order_id"),
+                readRequiredText(paymentLink, "id")
         );
     }
 
-    public SquareCheckoutResponse getResponse() { return response; }
+    private static String readRequiredText(JsonNode parentNode, String fieldName) {
+        String value = readNullableText(parentNode.path(fieldName));
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("Square checkout response is missing " + fieldName);
+        }
+        return value;
+    }
 
-    private String readNullableText(JsonNode node) {
+    private static String readNullableText(JsonNode node) {
         return (node == null || node.isMissingNode() || node.isNull()) ? null : node.asText();
     }
 
