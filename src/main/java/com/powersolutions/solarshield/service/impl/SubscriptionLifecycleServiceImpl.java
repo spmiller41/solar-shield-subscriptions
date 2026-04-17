@@ -7,6 +7,7 @@ import com.powersolutions.solarshield.entity.Contact;
 import com.powersolutions.solarshield.entity.Subscription;
 import com.powersolutions.solarshield.enums.SubscriptionResult;
 import com.powersolutions.solarshield.enums.SubscriptionStatus;
+import com.powersolutions.solarshield.repo.InvoiceRepo;
 import com.powersolutions.solarshield.repo.SubscriptionRepo;
 import com.powersolutions.solarshield.service.api.SubscriptionLifecycleService;
 import com.powersolutions.solarshield.service.square.SquareSubscriptionCheckoutService;
@@ -21,12 +22,14 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
 
     private final SquareSubscriptionCheckoutService checkoutService;
     private final SubscriptionRepo subscriptionRepo;
+    private final InvoiceRepo invoiceRepo;
 
     @Autowired
     public SubscriptionLifecycleServiceImpl(SquareSubscriptionCheckoutService checkoutService,
-                                            SubscriptionRepo subscriptionRepo) {
+                                            SubscriptionRepo subscriptionRepo, InvoiceRepo invoiceRepo) {
         this.checkoutService = checkoutService;
         this.subscriptionRepo = subscriptionRepo;
+        this.invoiceRepo = invoiceRepo;
     }
 
     /**
@@ -69,7 +72,8 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
 
     /**
      * Finalizes a Subscription from the Square webhook by resolving via order_id,
-     * setting identifiers, and marking it ACTIVE.
+     * setting identifiers, marking it ACTIVE, and repairing any previously created
+     * invoices that were missing a subscription link.
      *
      * @param request parsed Square webhook payload
      * @return updated Subscription or null if not found
@@ -84,7 +88,15 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
                     sub.setSubscriptionStatus(SubscriptionStatus.ACTIVE);
                     sub.setActivatedAt(LocalDateTime.now());
                     sub.setUpdatedAt(LocalDateTime.now());
-                    return subscriptionRepo.save(sub);
+
+                    Subscription savedSub = subscriptionRepo.save(sub);
+
+                    invoiceRepo.repairInvoicesByCustomerSubscriptionId(
+                            savedSub.getId(),
+                            savedSub.getCustomerSubscriptionId()
+                    );
+
+                    return savedSub;
                 })
                 .orElse(null);
     }
