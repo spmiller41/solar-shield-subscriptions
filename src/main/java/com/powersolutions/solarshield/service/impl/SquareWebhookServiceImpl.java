@@ -9,33 +9,43 @@ import org.springframework.stereotype.Service;
 @Service
 public class SquareWebhookServiceImpl implements SquareWebhookService {
 
-    private final SquareWebhookEventRepo eventRepo;
+    private final SquareEventServiceImpl squareEventService;
+    private final InvoiceBillingServiceImpl invoiceBillingService;
+    private final PaymentBillingServiceImpl paymentBillingService;
 
-    public SquareWebhookServiceImpl(SquareWebhookEventRepo eventRepo) {
-        this.eventRepo = eventRepo;
+    public SquareWebhookServiceImpl(SquareEventServiceImpl squareEventService,
+                                    InvoiceBillingServiceImpl invoiceBillingService,
+                                    PaymentBillingServiceImpl paymentBillingService) {
+        this.squareEventService = squareEventService;
+        this.invoiceBillingService = invoiceBillingService;
+        this.paymentBillingService = paymentBillingService;
     }
 
     @Override
     public void handleWebhook(SquareInvoicePaymentRequest request) {
 
-        if (eventRepo.existsByEventId(request.getEventId())) return;
+        if (squareEventService.hasProcessed(request.getEventId())) return;
 
         // route
         switch (request.getEventType()) {
+            case SUBSCRIPTION_CREATED:
+                // call SquareWebhookService
+                break;
+
             case INVOICE_CREATED:
             case INVOICE_UPDATED:
             case INVOICE_PAYMENT_MADE:
             case INVOICE_SCHEDULED_CHARGE_FAILED:
-                // call invoiceBillingService
+                invoiceBillingService.processInvoiceWebhook(request);
                 break;
 
             case PAYMENT_CREATED:
             case PAYMENT_UPDATED:
-                // call paymentBillingService
+                paymentBillingService.processPaymentWebhook(request);
                 break;
         }
 
-        eventRepo.save(new SquareWebhookEvent(request));
+        squareEventService.recordProcessedEvent(request);
     }
 
 }
