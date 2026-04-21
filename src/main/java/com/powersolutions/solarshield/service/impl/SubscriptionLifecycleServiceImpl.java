@@ -25,6 +25,12 @@ import java.util.Optional;
 public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleService {
 
     private static final Logger logger = LoggerFactory.getLogger(SubscriptionLifecycleServiceImpl.class);
+    private static final SquareCheckoutResponse PREBUILT_SQUARE_CHECKOUT_RESPONSE =
+            new SquareCheckoutResponse(
+                    "https://square.link/u/OZ2t040e",
+                    "PvB1KnWu1kvUHjrNgpdGPoVDI3UZY",
+                    null
+            );
 
     private final SquareSubscriptionCheckoutService checkoutService;
     private final SubscriptionRepo subscriptionRepo;
@@ -42,32 +48,37 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
      */
     @Override
     public Optional<String> getOrCreateCheckoutLink(SubscriptionProcessingResult wrapper, Contact contact) {
-        if (wrapper.getResult() != SubscriptionResult.PROCEED_TO_CHECKOUT) {
-            logger.info("Skipping checkout link creation for subscriptionId={} because result={}",
-                    wrapper.getSubscription() != null ? wrapper.getSubscription().getId() : null,
-                    wrapper.getResult());
+        if (shouldSkipCheckoutLinkCreation(wrapper, "checkout link creation")) {
             return Optional.empty();
+        }
+
+        Optional<String> existingCheckoutLink = getExistingCheckoutLink(wrapper.getSubscription());
+        if (existingCheckoutLink.isPresent()) {
+            return existingCheckoutLink;
         }
 
         Subscription sub = wrapper.getSubscription();
-        if (hasCheckoutLink(sub)) {
-            logger.info("Reusing existing checkout link for subscriptionId={} orderId={}",
-                    sub.getId(), sub.getSquareOrderId());
-            return Optional.of(sub.getSquareCheckoutLink());
-        }
-
         SquareCheckoutResponse response = checkoutService.createSubscriptionPaymentLink(sub, contact);
-        if (response == null || response.getCheckoutLink() == null || response.getCheckoutLink().isBlank()) {
-            logger.warn("Square checkout link creation returned no usable link for subscriptionId={}", sub.getId());
+        return persistCheckoutLink(sub, response, "square-api");
+    }
+
+    /**
+     * Reuses an existing checkout link or stores a fixed Square response captured from a live test.
+     */
+    public Optional<String> getOrCreateCheckoutLinkWithPrebuiltResponse(SubscriptionProcessingResult wrapper) {
+        if (shouldSkipCheckoutLinkCreation(wrapper, "prebuilt checkout link creation")) {
             return Optional.empty();
         }
 
-        sub.setSquareOrderId(response.getOrderId());
-        sub.setSquareCheckoutLink(response.getCheckoutLink());
-        subscriptionRepo.save(sub);
-        logger.info("Stored checkout link for subscriptionId={} orderId={}", sub.getId(), response.getOrderId());
+        Optional<String> existingCheckoutLink = getExistingCheckoutLink(wrapper.getSubscription());
+        if (existingCheckoutLink.isPresent()) {
+            return existingCheckoutLink;
+        }
 
-        return Optional.of(response.getCheckoutLink());
+        Subscription sub = wrapper.getSubscription();
+        logger.info("Using prebuilt Square checkout response for subscriptionId={} orderId={}",
+                sub.getId(), PREBUILT_SQUARE_CHECKOUT_RESPONSE.getOrderId());
+        return persistCheckoutLink(sub, PREBUILT_SQUARE_CHECKOUT_RESPONSE, "prebuilt-square-response");
     }
 
     /**
@@ -113,6 +124,47 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
      */
     private boolean hasCheckoutLink(Subscription sub) {
         return sub.getSquareCheckoutLink() != null && !sub.getSquareCheckoutLink().isBlank();
+    }
+
+    private boolean shouldSkipCheckoutLinkCreation(SubscriptionProcessingResult wrapper, String actionLabel) {
+        if (wrapper.getResult() != SubscriptionResult.PROCEED_TO_CHECKOUT) {
+            logger.info("Skipping {} for subscriptionId={} because result={}",
+                    actionLabel,
+                    wrapper.getSubscription() != null ? wrapper.getSubscription().getId() : null,
+                    wrapper.getResult());
+            return true;
+        }
+
+        return false;
+    }
+
+    private Optional<String> getExistingCheckoutLink(Subscription sub) {
+        if (!hasCheckoutLink(sub)) {
+            return Optional.empty();
+        }
+
+        logger.info("Reusing existing checkout link for subscriptionId={} orderId={}",
+                sub.getId(), sub.getSquareOrderId());
+        return Optional.of(sub.getSquareCheckoutLink());
+    }
+
+    private Optional<String> persistCheckoutLink(Subscription sub, SquareCheckoutResponse response, String source) {
+        if (response == null || response.getCheckoutLink() == null || response.getCheckoutLink().isBlank()) {
+            logger.warn("{} returned no usable checkout link for subscriptionId={}", source, sub.getId());
+            return Optional.empty();
+        }
+
+        if (response.getOrderId() == null || response.getOrderId().isBlank()) {
+            logger.warn("{} returned no usable orderId for subscriptionId={}", source, sub.getId());
+            return Optional.empty();
+        }
+
+        sub.setSquareOrderId(response.getOrderId());
+        sub.setSquareCheckoutLink(response.getCheckoutLink());
+        subscriptionRepo.save(sub);
+        logger.info("Stored checkout link for subscriptionId={} orderId={} source={}",
+                sub.getId(), response.getOrderId(), source);
+        return Optional.of(response.getCheckoutLink());
     }
 
 }

@@ -3,6 +3,7 @@ package com.powersolutions.solarshield.controller;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.powersolutions.solarshield.dto.SquareInvoicePaymentRequest;
 import com.powersolutions.solarshield.mapper.SquareUpdateMapper;
+import com.powersolutions.solarshield.service.impl.SquareWebhookServiceImpl;
 import com.powersolutions.solarshield.service.security.SquareSignatureVerifier;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -12,10 +13,12 @@ import org.springframework.web.bind.annotation.*;
 public class SquareController {
 
     private final SquareSignatureVerifier signatureVerifier;
+    private final SquareWebhookServiceImpl webhookService;
 
     @Autowired
-    public SquareController(SquareSignatureVerifier signatureVerifier) {
+    public SquareController(SquareSignatureVerifier signatureVerifier, SquareWebhookServiceImpl webhookService) {
         this.signatureVerifier = signatureVerifier;
+        this.webhookService = webhookService;
     }
 
     @PostMapping("/updates")
@@ -34,7 +37,7 @@ public class SquareController {
     @PostMapping("/updates_test")
     public void paymentUpdate(@RequestBody String squareRequest) throws JsonProcessingException {
         SquareInvoicePaymentRequest request = new SquareUpdateMapper(squareRequest).getRequest();
-        System.out.println(request);
+        webhookService.handleWebhook(request);
     }
 
 }
