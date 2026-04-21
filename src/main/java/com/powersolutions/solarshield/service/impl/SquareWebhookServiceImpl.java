@@ -54,14 +54,18 @@ public class SquareWebhookServiceImpl implements SquareWebhookService {
 
         switch (request.getEventType()) {
             case SUBSCRIPTION_CREATED:
-                subscriptionLifecycleService.finalizeSubscriptionFromWebhook(request);
+                subscriptionLifecycleService.linkSubscriptionFromWebhook(request);
                 break;
 
             case INVOICE_CREATED:
             case INVOICE_UPDATED:
-            case INVOICE_PAYMENT_MADE:
             case INVOICE_SCHEDULED_CHARGE_FAILED:
                 invoiceBillingService.processInvoiceWebhook(request);
+                break;
+
+            case INVOICE_PAYMENT_MADE:
+                invoiceBillingService.processInvoiceWebhook(request);
+                subscriptionLifecycleService.activateSubscriptionFromBillingWebhook(request);
                 break;
 
             case PAYMENT_CREATED:

@@ -82,12 +82,12 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
     }
 
     /**
-     * Activates the subscription tied to the webhook order id and repairs related invoices.
+     * Links Square subscription identifiers to the local subscription without activating it.
      */
     @Override
-    public Subscription finalizeSubscriptionFromWebhook(SquareInvoicePaymentRequest request) {
+    public Subscription linkSubscriptionFromWebhook(SquareInvoicePaymentRequest request) {
         if (request.getOrderId() == null || request.getOrderId().isBlank()) {
-            logger.warn("Cannot finalize subscription from Square webhook eventId={} because orderId is missing",
+            logger.warn("Cannot link subscription from Square webhook eventId={} because orderId is missing",
                     request.getEventId());
             return null;
         }
@@ -97,23 +97,56 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
                     sub.setCustomerSubscriptionId(request.getSubscriptionId());
                     sub.setCustomerId(request.getCustomerId());
                     sub.setEmail(request.getEmail());
-                    sub.setSubscriptionStatus(SubscriptionStatus.ACTIVE);
-                    sub.setActivatedAt(LocalDateTime.now());
                     sub.setUpdatedAt(LocalDateTime.now());
 
                     Subscription savedSub = subscriptionRepo.save(sub);
 
-                    invoiceRepo.repairInvoicesByCustomerSubscriptionId(
-                            savedSub.getId(),
-                            savedSub.getCustomerSubscriptionId()
-                    );
+                    repairInvoicesForSubscription(savedSub);
 
-                    logger.info("Finalized subscriptionId={} from Square webhook eventId={} orderId={} subscriptionStatus={}",
+                    logger.info("Linked subscriptionId={} from Square webhook eventId={} orderId={} customerSubscriptionId={}",
+                            savedSub.getId(), request.getEventId(), request.getOrderId(), savedSub.getCustomerSubscriptionId());
+                    return savedSub;
+                })
+                .orElseGet(() -> {
+                    logger.warn("No subscription found for Square webhook eventId={} orderId={} during linking",
+                            request.getEventId(), request.getOrderId());
+                    return null;
+                });
+    }
+
+    /**
+     * Activates the local subscription after a confirmed Square billing success event.
+     */
+    @Override
+    public Subscription activateSubscriptionFromBillingWebhook(SquareInvoicePaymentRequest request) {
+        if (request.getOrderId() == null || request.getOrderId().isBlank()) {
+            logger.warn("Cannot activate subscription from billing webhook eventId={} because orderId is missing",
+                    request.getEventId());
+            return null;
+        }
+
+        return subscriptionRepo.findBySquareOrderId(request.getOrderId())
+                .map(sub -> {
+                    sub.setCustomerSubscriptionId(firstNonBlank(request.getSubscriptionId(), sub.getCustomerSubscriptionId()));
+                    sub.setCustomerId(firstNonBlank(request.getCustomerId(), sub.getCustomerId()));
+                    sub.setEmail(firstNonBlank(request.getEmail(), sub.getEmail()));
+                    sub.setSubscriptionStatus(SubscriptionStatus.ACTIVE);
+
+                    if (sub.getActivatedAt() == null) {
+                        sub.setActivatedAt(LocalDateTime.now());
+                    }
+
+                    sub.setUpdatedAt(LocalDateTime.now());
+
+                    Subscription savedSub = subscriptionRepo.save(sub);
+                    repairInvoicesForSubscription(savedSub);
+
+                    logger.info("Activated subscriptionId={} from billing webhook eventId={} orderId={} subscriptionStatus={}",
                             savedSub.getId(), request.getEventId(), request.getOrderId(), savedSub.getSubscriptionStatus());
                     return savedSub;
                 })
                 .orElseGet(() -> {
-                    logger.warn("No subscription found for Square webhook eventId={} orderId={} during finalization",
+                    logger.warn("No subscription found for billing webhook eventId={} orderId={} during activation",
                             request.getEventId(), request.getOrderId());
                     return null;
                 });
@@ -124,6 +157,17 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
      */
     private boolean hasCheckoutLink(Subscription sub) {
         return sub.getSquareCheckoutLink() != null && !sub.getSquareCheckoutLink().isBlank();
+    }
+
+    private void repairInvoicesForSubscription(Subscription subscription) {
+        if (subscription.getCustomerSubscriptionId() == null || subscription.getCustomerSubscriptionId().isBlank()) {
+            return;
+        }
+
+        invoiceRepo.repairInvoicesByCustomerSubscriptionId(
+                subscription.getId(),
+                subscription.getCustomerSubscriptionId()
+        );
     }
 
     private boolean shouldSkipCheckoutLinkCreation(SubscriptionProcessingResult wrapper, String actionLabel) {
@@ -165,6 +209,10 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
         logger.info("Stored checkout link for subscriptionId={} orderId={} source={}",
                 sub.getId(), response.getOrderId(), source);
         return Optional.of(response.getCheckoutLink());
+    }
+
+    private String firstNonBlank(String preferredValue, String fallbackValue) {
+        return preferredValue != null && !preferredValue.isBlank() ? preferredValue : fallbackValue;
     }
 
 }

@@ -11,6 +11,8 @@ public interface SubscriptionLifecycleService {
 
     public Optional<String> getOrCreateCheckoutLink(SubscriptionProcessingResult wrapper, Contact contact);
 
-    public Subscription finalizeSubscriptionFromWebhook(SquareInvoicePaymentRequest request);
+    public Subscription linkSubscriptionFromWebhook(SquareInvoicePaymentRequest request);
+
+    public Subscription activateSubscriptionFromBillingWebhook(SquareInvoicePaymentRequest request);
 
 }
