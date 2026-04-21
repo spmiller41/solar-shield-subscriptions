@@ -58,8 +58,7 @@ public class PaymentBillingServiceImpl implements PaymentBillingService {
     /**
      * Stores the payment event until invoice processing can replay it.
      */
-    @Override
-    public void bufferPayment(SquareInvoicePaymentRequest request) {
+    private void bufferPayment(SquareInvoicePaymentRequest request) {
         pendingPaymentRepo.save(new PaymentBuffer(request));
         logger.info("Buffered payment webhook eventId={} for orderId={} status={}",
                 request.getEventId(), request.getOrderId(), request.getStatus());
@@ -68,8 +67,7 @@ public class PaymentBillingServiceImpl implements PaymentBillingService {
     /**
      * Advances the invoice when the incoming payment status outranks the stored one.
      */
-    @Override
-    public Invoice applyPaymentToInvoice(SquareInvoicePaymentRequest request, Invoice invoice) {
+    private Invoice applyPaymentToInvoice(SquareInvoicePaymentRequest request, Invoice invoice) {
         String incomingStatus = request.getStatus();
 
         if (shouldAdvanceStatus(incomingStatus, invoice.getStatus())) {
@@ -90,8 +88,7 @@ public class PaymentBillingServiceImpl implements PaymentBillingService {
     /**
      * Returns true when the incoming billing status outranks the current stored status.
      */
-    @Override
-    public boolean shouldAdvanceStatus(String incomingStatus, String currentStatus) {
+    private boolean shouldAdvanceStatus(String incomingStatus, String currentStatus) {
         SquareBillingStatus incoming = SquareBillingStatus.fromValue(incomingStatus);
         SquareBillingStatus current = SquareBillingStatus.fromValue(currentStatus);
 

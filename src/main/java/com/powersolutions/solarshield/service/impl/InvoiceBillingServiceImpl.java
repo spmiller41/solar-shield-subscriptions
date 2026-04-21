@@ -55,8 +55,7 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
     /**
      * Resolves the subscription tied to the webhook customerSubscriptionId, if one exists.
      */
-    @Override
-    public Subscription findSubscriptionByCustomerSubscriptionId(SquareInvoicePaymentRequest request) {
+    private Subscription findSubscriptionByCustomerSubscriptionId(SquareInvoicePaymentRequest request) {
         if (isBlank(request.getSubscriptionId())) {
             logger.info("Invoice webhook eventId={} has no customerSubscriptionId yet; invoice will remain detached for now. orderId={}",
                     request.getEventId(), request.getOrderId());
@@ -75,8 +74,7 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
     /**
      * Creates the invoice if missing or advances its status when the incoming event is newer.
      */
-    @Override
-    public Invoice upsertInvoice(SquareInvoicePaymentRequest request, Subscription subscription) {
+    private Invoice upsertInvoice(SquareInvoicePaymentRequest request, Subscription subscription) {
 
         String orderId = request.getOrderId();
         String incomingStatus = request.getStatus();
@@ -129,8 +127,7 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
     /**
      * Applies the strongest buffered payment status for the order and clears the buffer.
      */
-    @Override
-    public void handleBufferedPayments(String orderId, Invoice invoice) {
+    private void handleBufferedPayments(String orderId, Invoice invoice) {
         List<PaymentBuffer> bufferList = paymentBuffer.findByOrderId(orderId);
         if (bufferList.isEmpty()) return;
 
@@ -162,8 +159,7 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
     /**
      * Returns true when the incoming billing status outranks the current stored status.
      */
-    @Override
-    public boolean shouldAdvanceStatus(String incomingStatus, String currentStatus) {
+    private boolean shouldAdvanceStatus(String incomingStatus, String currentStatus) {
         SquareBillingStatus incoming = SquareBillingStatus.fromValue(incomingStatus);
         SquareBillingStatus current = SquareBillingStatus.fromValue(currentStatus);
 

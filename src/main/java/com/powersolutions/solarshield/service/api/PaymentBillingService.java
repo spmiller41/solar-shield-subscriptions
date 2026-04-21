@@ -7,10 +7,4 @@ public interface PaymentBillingService {
 
     Invoice processPaymentWebhook(SquareInvoicePaymentRequest request);
 
-    void bufferPayment(SquareInvoicePaymentRequest request);
-
-    Invoice applyPaymentToInvoice(SquareInvoicePaymentRequest request, Invoice invoice);
-
-    boolean shouldAdvanceStatus(String incomingStatus, String currentStatus);
-
 }
