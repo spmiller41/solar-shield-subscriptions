@@ -41,6 +41,8 @@ public class Invoice {
 
     public void setId(Integer id) { this.id = id; }
 
+    public String getCustomerSubscriptionId() { return customerSubscriptionId; }
+
     public void setCustomerSubscriptionId(String customerSubscriptionId) { this.customerSubscriptionId = customerSubscriptionId;}
 
     public Integer getSubscriptionId() { return subscriptionId; }

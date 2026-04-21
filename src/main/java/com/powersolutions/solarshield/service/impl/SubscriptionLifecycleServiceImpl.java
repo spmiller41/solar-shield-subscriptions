@@ -129,17 +129,17 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
      */
     @Override
     public Subscription activateSubscriptionFromBillingWebhook(SquareInvoicePaymentRequest request) {
-        if (request.getOrderId() == null || request.getOrderId().isBlank()) {
-            logger.warn("Cannot activate subscription from billing webhook eventId={} because orderId is missing",
+        if (isBlank(request.getSubscriptionId())) {
+            logger.warn("Cannot activate subscription from billing webhook eventId={} because customerSubscriptionId is missing",
                     request.getEventId());
             return null;
         }
 
-        return subscriptionRepo.findBySquareOrderId(request.getOrderId())
+        return subscriptionRepo.findByCustomerSubscriptionId(request.getSubscriptionId())
                 .map(sub -> activateSubscription(sub, request, "billing-webhook"))
                 .orElseGet(() -> {
-                    logger.warn("No subscription found for billing webhook eventId={} orderId={} during activation",
-                            request.getEventId(), request.getOrderId());
+                    logger.warn("No subscription found for billing webhook eventId={} customerSubscriptionId={} orderId={} during activation",
+                            request.getEventId(), request.getSubscriptionId(), request.getOrderId());
                     return null;
                 });
     }
@@ -236,6 +236,10 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
 
     private String firstNonBlank(String preferredValue, String fallbackValue) {
         return preferredValue != null && !preferredValue.isBlank() ? preferredValue : fallbackValue;
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
 }

@@ -6,9 +6,9 @@ import com.powersolutions.solarshield.entity.Subscription;
 
 public interface InvoiceBillingService {
 
-    void processInvoiceWebhook(SquareInvoicePaymentRequest request);
+    Invoice processInvoiceWebhook(SquareInvoicePaymentRequest request);
 
-    Subscription findSubscriptionByOrderId(SquareInvoicePaymentRequest request);
+    Subscription findSubscriptionByCustomerSubscriptionId(SquareInvoicePaymentRequest request);
 
     Invoice upsertInvoice(SquareInvoicePaymentRequest request, Subscription subscription);
 

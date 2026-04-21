@@ -1,6 +1,8 @@
 package com.powersolutions.solarshield.service.impl;
 
 import com.powersolutions.solarshield.dto.SquareInvoicePaymentRequest;
+import com.powersolutions.solarshield.entity.Invoice;
+import com.powersolutions.solarshield.enums.SquareBillingStatus;
 import com.powersolutions.solarshield.service.api.InvoiceBillingService;
 import com.powersolutions.solarshield.service.api.PaymentBillingService;
 import com.powersolutions.solarshield.service.api.SquareEventService;
@@ -59,13 +61,10 @@ public class SquareWebhookServiceImpl implements SquareWebhookService {
 
             case INVOICE_CREATED:
             case INVOICE_UPDATED:
-            case INVOICE_SCHEDULED_CHARGE_FAILED:
-                invoiceBillingService.processInvoiceWebhook(request);
-                break;
-
             case INVOICE_PAYMENT_MADE:
-                invoiceBillingService.processInvoiceWebhook(request);
-                subscriptionLifecycleService.activateSubscriptionFromBillingWebhook(request);
+            case INVOICE_SCHEDULED_CHARGE_FAILED:
+                Invoice invoice = invoiceBillingService.processInvoiceWebhook(request);
+                activateSubscriptionIfInvoiceIsSuccessful(request, invoice);
                 break;
 
             case PAYMENT_CREATED:
@@ -94,6 +93,24 @@ public class SquareWebhookServiceImpl implements SquareWebhookService {
         if (request.getEventType() == null) {
             throw new IllegalArgumentException("Square webhook eventType is required");
         }
+    }
+
+    private void activateSubscriptionIfInvoiceIsSuccessful(SquareInvoicePaymentRequest request, Invoice invoice) {
+        if (invoice == null || !isSuccessfulBillingStatus(invoice.getStatus())) {
+            return;
+        }
+
+        if ((request.getSubscriptionId() == null || request.getSubscriptionId().isBlank())
+                && invoice.getCustomerSubscriptionId() != null
+                && !invoice.getCustomerSubscriptionId().isBlank()) {
+            request.setSubscriptionId(invoice.getCustomerSubscriptionId());
+        }
+
+        subscriptionLifecycleService.activateSubscriptionFromBillingWebhook(request);
+    }
+
+    private boolean isSuccessfulBillingStatus(String status) {
+        return SquareBillingStatus.fromValue(status).getRank() >= SquareBillingStatus.COMPLETED.getRank();
     }
 
 }

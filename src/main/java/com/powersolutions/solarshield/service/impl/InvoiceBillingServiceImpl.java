@@ -38,26 +38,38 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
      * Resolves the subscription, upserts the invoice, and then replays any buffered payments.
      */
     @Override
-    public void processInvoiceWebhook(SquareInvoicePaymentRequest request) {
+    public Invoice processInvoiceWebhook(SquareInvoicePaymentRequest request) {
         if (request.getOrderId() == null || request.getOrderId().isBlank()) {
             logger.warn("Skipping invoice webhook eventId={} because orderId is missing. eventType={}",
                     request.getEventId(), request.getEventType());
-            return;
+            return null;
         }
 
-        Subscription subscription = findSubscriptionByOrderId(request);
+        Subscription subscription = findSubscriptionByCustomerSubscriptionId(request);
         Invoice invoice = upsertInvoice(request, subscription);
 
         handleBufferedPayments(request.getOrderId(), invoice);
+        return invoice;
     }
 
     /**
-     * Resolves the subscription tied to the webhook order id, if one exists.
+     * Resolves the subscription tied to the webhook customerSubscriptionId, if one exists.
      */
     @Override
-    public Subscription findSubscriptionByOrderId(SquareInvoicePaymentRequest request) {
-        if (request.getOrderId() == null) return null;
-        return subscriptionRepo.findBySquareOrderId(request.getOrderId()).orElse(null);
+    public Subscription findSubscriptionByCustomerSubscriptionId(SquareInvoicePaymentRequest request) {
+        if (isBlank(request.getSubscriptionId())) {
+            logger.info("Invoice webhook eventId={} has no customerSubscriptionId yet; invoice will remain detached for now. orderId={}",
+                    request.getEventId(), request.getOrderId());
+            return null;
+        }
+
+        return subscriptionRepo.findByCustomerSubscriptionId(request.getSubscriptionId())
+                .map(subscription -> {
+                    logger.info("Resolved invoice webhook eventId={} by customerSubscriptionId={} orderId={}",
+                            request.getEventId(), request.getSubscriptionId(), request.getOrderId());
+                    return subscription;
+                })
+                .orElse(null);
     }
 
     /**
@@ -136,9 +148,12 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
 
         if (highestRankPayment != null &&
                 shouldAdvanceStatus(highestRankPayment.getStatus(), invoice.getStatus())) {
+            String previousStatus = invoice.getStatus();
             invoice.setStatus(highestRankPayment.getStatus());
             invoice.setUpdatedAt(LocalDateTime.now());
             invoiceRepo.save(invoice);
+            logger.info("Promoted invoice orderId={} from status {} to {} using buffered payment status={}",
+                    invoice.getOrderId(), previousStatus, highestRankPayment.getStatus(), highestRankPayment.getStatus());
         }
 
         paymentBuffer.deleteByOrderId(orderId);
@@ -153,6 +168,10 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
         SquareBillingStatus current = SquareBillingStatus.fromValue(currentStatus);
 
         return incoming.getRank() > current.getRank();
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
 }
