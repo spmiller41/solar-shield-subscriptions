@@ -5,16 +5,25 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.powersolutions.solarshield.dto.SquareInvoicePaymentRequest;
 import com.powersolutions.solarshield.enums.SquareEventType;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
+/**
+ * Parses Square webhook payloads into the normalized request DTO used by the webhook services.
+ */
 public final class SquareUpdateMapper {
 
+    private static final Logger logger = LoggerFactory.getLogger(SquareUpdateMapper.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final SquareInvoicePaymentRequest request;
 
+    /**
+     * Maps a raw Square webhook payload into a single normalized webhook request object.
+     */
     public SquareUpdateMapper(String json) throws JsonProcessingException {
         this.request = new SquareInvoicePaymentRequest();
 
@@ -30,7 +39,7 @@ public final class SquareUpdateMapper {
         request.setEventType(eventType);
 
         if (eventType == null) {
-            throw new IllegalArgumentException("Unsupported Square webhook type: " + eventTypeValue);
+            throw mappingFailure("Unsupported Square webhook type: " + eventTypeValue);
         }
 
         switch (eventType) {
@@ -51,7 +60,7 @@ public final class SquareUpdateMapper {
                 break;
 
             default:
-                throw new IllegalArgumentException("Unsupported Square webhook type: " + eventTypeValue);
+                throw mappingFailure("Unsupported Square webhook type: " + eventTypeValue);
         }
     }
 
@@ -163,8 +172,16 @@ public final class SquareUpdateMapper {
         return node.isMissingNode() || node.isNull() ? null : node.asText();
     }
 
+    /**
+     * Returns the normalized webhook request produced by this mapper.
+     */
     public SquareInvoicePaymentRequest getRequest() {
         return request;
+    }
+
+    private IllegalArgumentException mappingFailure(String message) {
+        logger.warn("Square webhook mapping failed: {}", message);
+        return new IllegalArgumentException(message);
     }
 
 }

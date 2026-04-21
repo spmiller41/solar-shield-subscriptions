@@ -2,6 +2,8 @@ package com.powersolutions.solarshield.mapper;
 
 import com.powersolutions.solarshield.dto.FormIntakeRequest;
 import com.powersolutions.solarshield.enums.PlanTier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -11,6 +13,7 @@ import java.util.regex.Pattern;
  */
 public final class FormIntakeMapper {
 
+    private static final Logger logger = LoggerFactory.getLogger(FormIntakeMapper.class);
     private static final Pattern SIMPLE_EMAIL_PATTERN = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
     private static final Map<String, String> STATE_CODES = Map.ofEntries(
             Map.entry("CT", "CT"), Map.entry("CONNECTICUT", "CT"),
@@ -20,9 +23,12 @@ public final class FormIntakeMapper {
 
     private final FormIntakeRequest request;
 
+    /**
+     * Maps validated form fields into the normalized intake DTO used by downstream services.
+     */
     public FormIntakeMapper(Map<String, String> formParams) {
         if (formParams == null) {
-            throw new IllegalArgumentException("Form parameters are required.");
+            throw validationFailure("Form parameters are required.");
         }
 
         request = new FormIntakeRequest();
@@ -37,12 +43,15 @@ public final class FormIntakeMapper {
         request.setPlanTier(mapPlanTier(formParams.get("Home Solar Shield Level")));
     }
 
+    /**
+     * Returns the normalized intake request produced by this mapper.
+     */
     public FormIntakeRequest getRequest() { return request; }
 
     private String requiredTrim(Map<String, String> formParams, String fieldName) {
         String value = trim(formParams.get(fieldName));
         if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(fieldName + " is required.");
+            throw validationFailure(fieldName + " is required.");
         }
         return value;
     }
@@ -59,7 +68,7 @@ public final class FormIntakeMapper {
 
         String lowercaseEmail = normalized.toLowerCase();
         if (!SIMPLE_EMAIL_PATTERN.matcher(lowercaseEmail).matches()) {
-            throw new IllegalArgumentException("Invalid email address: " + email);
+            throw validationFailure("Invalid email address.");
         }
 
         return lowercaseEmail;
@@ -67,7 +76,7 @@ public final class FormIntakeMapper {
 
     private String normalizePhone(String phone) {
         if (phone == null || phone.isBlank()) {
-            throw new IllegalArgumentException("Phone is required.");
+            throw validationFailure("Phone is required.");
         }
 
         String digits = phone.replaceAll("\\D", "");
@@ -80,7 +89,7 @@ public final class FormIntakeMapper {
             return "+" + digits;
         }
 
-        throw new IllegalArgumentException("Invalid phone number: " + phone);
+        throw validationFailure("Invalid phone number.");
     }
 
     private String normalizeUpperRequired(Map<String, String> formParams, String fieldName) {
@@ -89,13 +98,13 @@ public final class FormIntakeMapper {
 
     private String normalizeState(String state) {
         if (state == null || state.isBlank()) {
-            throw new IllegalArgumentException("State is required.");
+            throw validationFailure("State is required.");
         }
 
         String normalized = state.trim().toUpperCase();
         String stateCode = STATE_CODES.get(normalized);
         if (stateCode == null) {
-            throw new IllegalArgumentException("State must be NY, NJ, or CT.");
+            throw validationFailure("State must be NY, NJ, or CT.");
         }
 
         return stateCode;
@@ -103,7 +112,7 @@ public final class FormIntakeMapper {
 
     private String normalizeZip(String zip) {
         if (zip == null || zip.isBlank()) {
-            throw new IllegalArgumentException("Zip is required.");
+            throw validationFailure("Zip is required.");
         }
 
         String digits = zip.replaceAll("\\D", "");
@@ -115,12 +124,12 @@ public final class FormIntakeMapper {
             return digits.substring(0, 5);
         }
 
-        throw new IllegalArgumentException("Invalid zip code: " + zip);
+        throw validationFailure("Invalid zip code.");
     }
 
     private PlanTier mapPlanTier(String level) {
         if (level == null || level.isBlank()) {
-            throw new IllegalArgumentException("Plan tier is required.");
+            throw validationFailure("Plan tier is required.");
         }
 
         String normalized = level.trim().toUpperCase();
@@ -141,7 +150,12 @@ public final class FormIntakeMapper {
             return PlanTier.TEST;
         }
 
-        throw new IllegalArgumentException("Unknown plan tier: " + level);
+        throw validationFailure("Unknown plan tier.");
+    }
+
+    private IllegalArgumentException validationFailure(String message) {
+        logger.warn("Form intake mapping failed: {}", message);
+        return new IllegalArgumentException(message);
     }
 
 }
