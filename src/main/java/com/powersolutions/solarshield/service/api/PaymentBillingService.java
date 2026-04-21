@@ -5,11 +5,11 @@ import com.powersolutions.solarshield.entity.Invoice;
 
 public interface PaymentBillingService {
 
-    void processPaymentWebhook(SquareInvoicePaymentRequest request);
+    Invoice processPaymentWebhook(SquareInvoicePaymentRequest request);
 
     void bufferPayment(SquareInvoicePaymentRequest request);
 
-    void applyPaymentToInvoice(SquareInvoicePaymentRequest request, Invoice invoice);
+    Invoice applyPaymentToInvoice(SquareInvoicePaymentRequest request, Invoice invoice);
 
     boolean shouldAdvanceStatus(String incomingStatus, String currentStatus);
 

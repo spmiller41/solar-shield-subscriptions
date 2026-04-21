@@ -69,7 +69,8 @@ public class SquareWebhookServiceImpl implements SquareWebhookService {
 
             case PAYMENT_CREATED:
             case PAYMENT_UPDATED:
-                paymentBillingService.processPaymentWebhook(request);
+                Invoice paymentInvoice = paymentBillingService.processPaymentWebhook(request);
+                activateSubscriptionIfInvoiceIsSuccessful(request, paymentInvoice);
                 break;
         }
 

@@ -34,11 +34,11 @@ public class PaymentBillingServiceImpl implements PaymentBillingService {
      * Routes the payment event to an existing invoice or buffers it for later replay.
      */
     @Override
-    public void processPaymentWebhook(SquareInvoicePaymentRequest request) {
+    public Invoice processPaymentWebhook(SquareInvoicePaymentRequest request) {
         if (request.getOrderId() == null || request.getOrderId().isBlank()) {
             logger.warn("Skipping payment webhook eventId={} because orderId is missing. eventType={}",
                     request.getEventId(), request.getEventType());
-            return;
+            return null;
         }
 
         Optional<Invoice> optInvoice = invoiceRepo.findByOrderId(request.getOrderId());
@@ -46,13 +46,13 @@ public class PaymentBillingServiceImpl implements PaymentBillingService {
         if (optInvoice.isPresent()) {
             logger.info("Applying payment webhook eventId={} to invoice orderId={} status={}",
                     request.getEventId(), request.getOrderId(), request.getStatus());
-            applyPaymentToInvoice(request, optInvoice.get());
-            return;
+            return applyPaymentToInvoice(request, optInvoice.get());
         }
 
         logger.info("Buffering payment webhook eventId={} for unresolved orderId={} status={}",
                 request.getEventId(), request.getOrderId(), request.getStatus());
         bufferPayment(request);
+        return null;
     }
 
     /**
@@ -69,21 +69,22 @@ public class PaymentBillingServiceImpl implements PaymentBillingService {
      * Advances the invoice when the incoming payment status outranks the stored one.
      */
     @Override
-    public void applyPaymentToInvoice(SquareInvoicePaymentRequest request, Invoice invoice) {
+    public Invoice applyPaymentToInvoice(SquareInvoicePaymentRequest request, Invoice invoice) {
         String incomingStatus = request.getStatus();
 
         if (shouldAdvanceStatus(incomingStatus, invoice.getStatus())) {
             String previousStatus = invoice.getStatus();
             invoice.setStatus(incomingStatus);
             invoice.setUpdatedAt(LocalDateTime.now());
-            invoiceRepo.save(invoice);
+            Invoice savedInvoice = invoiceRepo.save(invoice);
             logger.info("Updated invoice orderId={} from status {} to {} via payment eventId={}",
                     invoice.getOrderId(), previousStatus, incomingStatus, request.getEventId());
-            return;
+            return savedInvoice;
         }
 
         logger.info("Ignored stale payment webhook eventId={} for orderId={}. currentStatus={}, incomingStatus={}",
                 request.getEventId(), invoice.getOrderId(), invoice.getStatus(), incomingStatus);
+        return invoice;
     }
 
     /**
