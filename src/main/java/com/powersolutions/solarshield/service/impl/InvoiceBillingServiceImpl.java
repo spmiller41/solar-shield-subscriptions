@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -67,12 +68,17 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
 
         String orderId = request.getOrderId();
         String incomingStatus = request.getStatus();
+        LocalDateTime now = LocalDateTime.now();
 
         Invoice invoice = invoiceRepo.findByOrderId(orderId)
                 .orElseGet(() -> {
                     Invoice newInvoice = new Invoice();
                     newInvoice.setOrderId(orderId);
+                    newInvoice.setCustomerSubscriptionId(request.getSubscriptionId());
+                    newInvoice.setAmount(request.getAmount());
+                    newInvoice.setCurrency(request.getCurrency());
                     newInvoice.setStatus(incomingStatus);
+                    newInvoice.setUpdatedAt(now);
 
                     if (subscription != null) {
                         newInvoice.setSubscriptionId(subscription.getId());
@@ -82,9 +88,27 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
                 });
 
         if (invoice.getId() != 0) {
+            if (request.getSubscriptionId() != null && !request.getSubscriptionId().isBlank()) {
+                invoice.setCustomerSubscriptionId(request.getSubscriptionId());
+            }
+
+            if (request.getAmount() != null) {
+                invoice.setAmount(request.getAmount());
+            }
+
+            if (request.getCurrency() != null && !request.getCurrency().isBlank()) {
+                invoice.setCurrency(request.getCurrency());
+            }
+
+            if (subscription != null && invoice.getSubscriptionId() == null) {
+                invoice.setSubscriptionId(subscription.getId());
+            }
+
             if (shouldAdvanceStatus(incomingStatus, invoice.getStatus())) {
                 invoice.setStatus(incomingStatus);
             }
+
+            invoice.setUpdatedAt(now);
         }
 
         return invoiceRepo.save(invoice);
@@ -113,6 +137,7 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
         if (highestRankPayment != null &&
                 shouldAdvanceStatus(highestRankPayment.getStatus(), invoice.getStatus())) {
             invoice.setStatus(highestRankPayment.getStatus());
+            invoice.setUpdatedAt(LocalDateTime.now());
             invoiceRepo.save(invoice);
         }
 
