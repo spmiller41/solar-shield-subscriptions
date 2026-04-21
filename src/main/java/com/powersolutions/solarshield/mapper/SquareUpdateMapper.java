@@ -9,14 +9,16 @@ import com.powersolutions.solarshield.enums.SquareEventType;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-public class SquareUpdateMapper {
+public final class SquareUpdateMapper {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final SquareInvoicePaymentRequest request;
 
     public SquareUpdateMapper(String json) throws JsonProcessingException {
         this.request = new SquareInvoicePaymentRequest();
 
-        JsonNode root = new ObjectMapper().readTree(json);
+        JsonNode root = OBJECT_MAPPER.readTree(json);
 
         String eventId = readNullableText(root.path("event_id"));
         request.setEventId(eventId);
@@ -35,6 +37,7 @@ public class SquareUpdateMapper {
             case INVOICE_CREATED:
             case INVOICE_UPDATED:
             case INVOICE_PAYMENT_MADE:
+            case INVOICE_SCHEDULED_CHARGE_FAILED:
                 mapInvoice(dataObject.path("invoice"));
                 break;
 
