@@ -24,6 +24,7 @@ public class Invoice {
     @Column(name = "currency") private String currency;
     @Column(name = "status") private String status;
     @Column(name = "updated_at") private LocalDateTime updatedAt;
+    @Column(name = "zoho_subform_id") private String zohoSubformId;
 
     public Invoice() {}
 
@@ -69,6 +70,10 @@ public class Invoice {
 
     public void setStatus(String status) { this.status = status; }
 
+    public String getZohoSubformId() { return zohoSubformId; }
+
+    public void setZohoSubformId(String zohoSubformId) { this.zohoSubformId = zohoSubformId; }
+
     @Override
     public String toString() {
         return "Invoice{" +
@@ -80,6 +85,7 @@ public class Invoice {
                 ", currency='" + currency + '\'' +
                 ", status='" + status + '\'' +
                 ", updatedAt=" + updatedAt +
+                ", zohoSubformId='" + zohoSubformId + '\'' +
                 '}';
     }
 

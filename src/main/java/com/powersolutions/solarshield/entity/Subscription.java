@@ -18,44 +18,23 @@ public class Subscription {
     private int id;
 
     // FK
-    @Column(name = "contact_id")
-    public int contactId;
+    @Column(name = "contact_id") private int contactId;
 
     // FK
-    @Column(name = "address_id")
-    public int addressId;
+    @Column(name = "address_id") private int addressId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "plan_tier")
-    public PlanTier planTier;
+    @Enumerated(EnumType.STRING) @Column(name = "plan_tier") private PlanTier planTier;
+    @Enumerated(EnumType.STRING) @Column(name = "subscription_status") private SubscriptionStatus subscriptionStatus;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "subscription_status")
-    public SubscriptionStatus subscriptionStatus;
-
-    @Column(name = "customer_subscription_id")
-    public String customerSubscriptionId;
-
-    @Column(name = "square_order_id")
-    public String squareOrderId;
-
-    @Column(name = "customerId")
-    public String customerId;
-
-    @Column(name = "email")
-    public String email;
-
-    @Column(name = "created_at")
-    public LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    public LocalDateTime updatedAt;
-
-    @Column(name = "activated_at")
-    public LocalDateTime activatedAt;
-
-    @Column(name = "square_checkout_link")
-    public String squareCheckoutLink;
+    @Column(name = "customer_subscription_id") private String customerSubscriptionId;
+    @Column(name = "square_order_id") private String squareOrderId;
+    @Column(name = "customerId") private String customerId;
+    @Column(name = "email") private String email;
+    @Column(name = "created_at") private LocalDateTime createdAt;
+    @Column(name = "updated_at") private LocalDateTime updatedAt;
+    @Column(name = "activated_at") private LocalDateTime activatedAt;
+    @Column(name = "square_checkout_link") private String squareCheckoutLink;
+    @Column(name = "zoho_record_id") private String zohoRecordId;
 
     @Column(name = "external_uid", nullable = false, unique = true, updatable = false)
     private String externalUid;
@@ -132,6 +111,10 @@ public class Subscription {
 
     public String getExternalUid() { return externalUid; }
 
+    public String getZohoRecordId() { return zohoRecordId; }
+
+    public void setZohoRecordId(String zohoRecordId) { this.zohoRecordId = zohoRecordId; }
+
     @Override
     public String toString() {
         return "Subscription{" +
@@ -148,8 +131,9 @@ public class Subscription {
                 ", updatedAt=" + updatedAt +
                 ", activatedAt=" + activatedAt +
                 ", squareCheckoutLink='" + squareCheckoutLink + '\'' +
+                ", zohoRecordId='" + zohoRecordId + '\'' +
                 ", externalUid='" + externalUid + '\'' +
                 '}';
     }
-    
+
 }
