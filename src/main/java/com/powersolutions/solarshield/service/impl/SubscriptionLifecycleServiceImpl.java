@@ -12,8 +12,10 @@ import com.powersolutions.solarshield.repo.InvoiceRepo;
 import com.powersolutions.solarshield.repo.SubscriptionRepo;
 import com.powersolutions.solarshield.service.api.SubscriptionLifecycleService;
 import com.powersolutions.solarshield.service.square.SquareSubscriptionCheckoutService;
+import com.powersolutions.solarshield.zoho.event.SubscriptionActivatedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -41,12 +43,16 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
     private final SquareSubscriptionCheckoutService checkoutService;
     private final SubscriptionRepo subscriptionRepo;
     private final InvoiceRepo invoiceRepo;
+    private final ApplicationEventPublisher eventPublisher;
 
     public SubscriptionLifecycleServiceImpl(SquareSubscriptionCheckoutService checkoutService,
-                                            SubscriptionRepo subscriptionRepo, InvoiceRepo invoiceRepo) {
+                                            SubscriptionRepo subscriptionRepo,
+                                            InvoiceRepo invoiceRepo,
+                                            ApplicationEventPublisher eventPublisher) {
         this.checkoutService = checkoutService;
         this.subscriptionRepo = subscriptionRepo;
         this.invoiceRepo = invoiceRepo;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -215,6 +221,8 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
     }
 
     private Subscription activateSubscription(Subscription sub, SquareInvoicePaymentRequest request, String source) {
+        boolean wasActive = sub.getSubscriptionStatus() == SubscriptionStatus.ACTIVE;
+
         sub.setCustomerSubscriptionId(firstNonBlank(request.getSubscriptionId(), sub.getCustomerSubscriptionId()));
         sub.setCustomerId(firstNonBlank(request.getCustomerId(), sub.getCustomerId()));
         sub.setEmail(firstNonBlank(request.getEmail(), sub.getEmail()));
@@ -228,6 +236,10 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
 
         Subscription savedSub = subscriptionRepo.save(sub);
         repairInvoicesForSubscription(savedSub);
+
+        if (!wasActive) {
+            eventPublisher.publishEvent(new SubscriptionActivatedEvent(savedSub.getId()));
+        }
 
         logger.info("Activated subscriptionId={} from {} eventId={} orderId={} subscriptionStatus={}",
                 savedSub.getId(), source, request.getEventId(), request.getOrderId(), savedSub.getSubscriptionStatus());

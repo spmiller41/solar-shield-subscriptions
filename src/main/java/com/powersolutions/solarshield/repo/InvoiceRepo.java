@@ -7,11 +7,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface InvoiceRepo extends JpaRepository<Invoice, Integer> {
 
     Optional<Invoice> findByOrderId(String orderId);
+
+    List<Invoice> findAllBySubscriptionId(Integer subscriptionId);
 
     boolean existsByCustomerSubscriptionIdAndStatusIn(String customerSubscriptionId, Collection<String> statuses);
 
