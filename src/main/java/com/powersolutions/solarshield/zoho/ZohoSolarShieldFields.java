@@ -8,6 +8,7 @@ public final class ZohoSolarShieldFields {
 
     // Zoho Data Wrapper
     public static final String DATA = "data";
+    public static final String RECORD_ID = "id";
 
     // Account / Core
     public static final String NAME = "Name";
@@ -28,5 +29,11 @@ public final class ZohoSolarShieldFields {
     public static final String STATE = "Address_State_Province";
     public static final String ZIP = "Address_Zip_Postal_Code";
     public static final String COUNTRY = "Address_Country_Region";
+
+    // Invoice Subform
+    public static final String ACCOUNT_INVOICES = "Account_Invoices";
+    public static final String INVOICE_AMOUNT = "Amount";
+    public static final String INVOICE_STATUS = "Status";
+    public static final String INVOICE_UPDATED_AT = "Updated_At";
 
 }
