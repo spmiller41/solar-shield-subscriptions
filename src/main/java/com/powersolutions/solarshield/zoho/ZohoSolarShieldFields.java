@@ -35,5 +35,6 @@ public final class ZohoSolarShieldFields {
     public static final String INVOICE_AMOUNT = "Amount";
     public static final String INVOICE_STATUS = "Status";
     public static final String INVOICE_UPDATED_AT = "Updated_At";
+    public static final String INVOICE_ORDER_ID = "Order_Id";
 
 }

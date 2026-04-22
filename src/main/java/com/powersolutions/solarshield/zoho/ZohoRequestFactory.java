@@ -2,6 +2,7 @@ package com.powersolutions.solarshield.zoho;
 
 import com.powersolutions.solarshield.entity.Address;
 import com.powersolutions.solarshield.entity.Contact;
+import com.powersolutions.solarshield.entity.Invoice;
 import com.powersolutions.solarshield.entity.Subscription;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -41,6 +42,15 @@ public final class ZohoRequestFactory {
     public static String buildUpsertEndpoint(String baseUrl, ModuleApiName zohoModule) {
         String normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
         return normalizedBaseUrl + zohoModule + "/upsert";
+    }
+
+    public static String buildModuleEndpoint(String baseUrl, ModuleApiName zohoModule) {
+        String normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+        return normalizedBaseUrl + zohoModule;
+    }
+
+    public static String buildRecordEndpoint(String baseUrl, ModuleApiName zohoModule, String recordId) {
+        return buildModuleEndpoint(baseUrl, zohoModule) + "/" + recordId;
     }
 
     public static Map<String, Object> buildAccountBody(Subscription subscription, Address address, Contact contact) {
@@ -91,6 +101,29 @@ public final class ZohoRequestFactory {
         return body;
     }
 
+    public static Map<String, Object> buildInvoiceSubformBody(Subscription subscription, List<Invoice> invoices) {
+        Objects.requireNonNull(subscription, "subscription is required");
+        Objects.requireNonNull(invoices, "invoices are required");
+
+        if (subscription.getZohoRecordId() == null || subscription.getZohoRecordId().isBlank()) {
+            throw new IllegalArgumentException("subscription zohoRecordId is required for Zoho subform sync");
+        }
+
+        List<Map<String, Object>> invoiceRows = invoices.stream()
+                .filter(Objects::nonNull)
+                .map(ZohoRequestFactory::buildInvoiceSubformRow)
+                .toList();
+
+        Map<String, Object> record = new HashMap<>();
+        record.put(ZohoSolarShieldFields.RECORD_ID, subscription.getZohoRecordId());
+        record.put(ZohoSolarShieldFields.ACCOUNT_INVOICES, invoiceRows);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put(ZohoSolarShieldFields.DATA, List.of(record));
+        body.put("trigger", List.of());
+        return body;
+    }
+
     private static void validateAccountInputs(Subscription subscription, Address address, Contact contact) {
         Objects.requireNonNull(subscription, "subscription is required");
         Objects.requireNonNull(address, "address is required");
@@ -103,6 +136,18 @@ public final class ZohoRequestFactory {
 
     private static String formatDateTimeIfPresent(LocalDateTime dateTime) {
         return dateTime == null ? null : formatDateTime(dateTime);
+    }
+
+    private static Map<String, Object> buildInvoiceSubformRow(Invoice invoice) {
+        Map<String, Object> row = new HashMap<>();
+
+        putIfNotNull(row, ZohoSolarShieldFields.RECORD_ID, invoice.getZohoSubformId());
+        putIfNotNull(row, ZohoSolarShieldFields.INVOICE_ORDER_ID, invoice.getOrderId());
+        putIfNotNull(row, ZohoSolarShieldFields.INVOICE_AMOUNT, invoice.getAmount());
+        putIfNotNull(row, ZohoSolarShieldFields.INVOICE_STATUS, invoice.getStatus());
+        putIfNotNull(row, ZohoSolarShieldFields.INVOICE_UPDATED_AT, formatDateTimeIfPresent(invoice.getUpdatedAt()));
+
+        return row;
     }
 
     private static void putIfNotNull(Map<String, Object> obj, String key, Object value) {
