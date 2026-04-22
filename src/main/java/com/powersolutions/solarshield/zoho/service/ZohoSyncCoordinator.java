@@ -49,7 +49,7 @@ public class ZohoSyncCoordinator {
     /**
      * Syncs a single invoice row only when the parent Zoho record is already linked locally.
      */
-    @Order(1)
+    @Order(2)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleInvoiceChanged(InvoiceChangedEvent event) {
         Invoice invoice = invoiceRepo.findById(event.invoiceId())
@@ -87,7 +87,7 @@ public class ZohoSyncCoordinator {
     /**
      * Upserts the parent Zoho account and syncs all linked invoices when a subscription first becomes ACTIVE.
      */
-    @Order(2)
+    @Order(1)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleSubscriptionActivated(SubscriptionActivatedEvent event) {
         Subscription subscription = subscriptionRepo.findById(event.subscriptionId())

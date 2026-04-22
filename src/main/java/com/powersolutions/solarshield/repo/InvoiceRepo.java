@@ -28,4 +28,13 @@ public interface InvoiceRepo extends JpaRepository<Invoice, Integer> {
     """)
     int repairInvoicesByCustomerSubscriptionId(Integer subscriptionId, String customerSubscriptionId);
 
+    @Transactional
+    @Modifying
+    @Query("""
+    UPDATE Invoice i
+       SET i.zohoSubformId = :zohoSubformId
+     WHERE i.id = :invoiceId
+    """)
+    int updateZohoSubformId(Integer invoiceId, String zohoSubformId);
+
 }

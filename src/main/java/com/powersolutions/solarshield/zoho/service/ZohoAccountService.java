@@ -8,7 +8,6 @@ import com.powersolutions.solarshield.entity.Contact;
 import com.powersolutions.solarshield.entity.Invoice;
 import com.powersolutions.solarshield.entity.Subscription;
 import com.powersolutions.solarshield.repo.InvoiceRepo;
-import com.powersolutions.solarshield.repo.SubscriptionRepo;
 import com.powersolutions.solarshield.zoho.ModuleApiName;
 import com.powersolutions.solarshield.zoho.ZohoRequestFactory;
 import com.powersolutions.solarshield.zoho.ZohoSolarShieldFields;
@@ -40,19 +39,19 @@ public class ZohoAccountService {
 
     private final RestTemplate restTemplate;
     private final TokenService tokenService;
-    private final SubscriptionRepo subscriptionRepo;
     private final InvoiceRepo invoiceRepo;
+    private final ZohoPersistenceService zohoPersistenceService;
     private final ObjectMapper objectMapper;
 
     public ZohoAccountService(RestTemplate restTemplate,
                               TokenService tokenService,
-                              SubscriptionRepo subscriptionRepo,
                               InvoiceRepo invoiceRepo,
+                              ZohoPersistenceService zohoPersistenceService,
                               ObjectMapper objectMapper) {
         this.restTemplate = restTemplate;
         this.tokenService = tokenService;
-        this.subscriptionRepo = subscriptionRepo;
         this.invoiceRepo = invoiceRepo;
+        this.zohoPersistenceService = zohoPersistenceService;
         this.objectMapper = objectMapper;
     }
 
@@ -126,7 +125,7 @@ public class ZohoAccountService {
         }
 
         subscription.setZohoRecordId(zohoRecordId);
-        subscriptionRepo.save(subscription);
+        zohoPersistenceService.persistSubscriptionZohoRecordId(subscription.getId(), zohoRecordId);
     }
 
     /**
@@ -200,7 +199,7 @@ public class ZohoAccountService {
 
     private void reconcileInvoiceSubformIds(Subscription subscription, List<Invoice> invoices) {
         Map<String, String> subformIdsByOrderId = fetchZohoInvoiceSubformIds(subscription);
-        List<Invoice> invoicesToUpdate = new ArrayList<>();
+        int updatedCount = 0;
 
         for (Invoice invoice : invoices) {
             if (invoice.getZohoSubformId() != null && !invoice.getZohoSubformId().isBlank()) {
@@ -218,11 +217,14 @@ public class ZohoAccountService {
             }
 
             invoice.setZohoSubformId(zohoSubformId);
-            invoicesToUpdate.add(invoice);
+            if (zohoPersistenceService.persistInvoiceZohoSubformId(invoice.getId(), zohoSubformId)) {
+                updatedCount++;
+            }
         }
 
-        if (!invoicesToUpdate.isEmpty()) {
-            invoiceRepo.saveAll(invoicesToUpdate);
+        if (updatedCount > 0) {
+            logger.info("Persisted {} Zoho invoice subform ids for subscriptionId={}",
+                    updatedCount, subscription.getId());
         }
     }
 
