@@ -9,12 +9,15 @@ import com.powersolutions.solarshield.repo.InvoiceRepo;
 import com.powersolutions.solarshield.repo.PendingPaymentRepo;
 import com.powersolutions.solarshield.repo.SubscriptionRepo;
 import com.powersolutions.solarshield.service.api.InvoiceBillingService;
+import com.powersolutions.solarshield.service.model.InvoiceMutationResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Applies Square invoice events to local invoices and replays buffered payment updates when needed.
@@ -38,18 +41,21 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
      * Resolves the subscription, upserts the invoice, and then replays any buffered payments.
      */
     @Override
-    public Invoice processInvoiceWebhook(SquareInvoicePaymentRequest request) {
+    public InvoiceMutationResult processInvoiceWebhook(SquareInvoicePaymentRequest request) {
         if (request.getOrderId() == null || request.getOrderId().isBlank()) {
             logger.warn("Skipping invoice webhook eventId={} because orderId is missing. eventType={}",
                     request.getEventId(), request.getEventType());
-            return null;
+            return new InvoiceMutationResult(null, false);
         }
 
         Subscription subscription = findSubscriptionByCustomerSubscriptionId(request);
-        Invoice invoice = upsertInvoice(request, subscription);
+        InvoiceMutationResult upsertResult = upsertInvoice(request, subscription);
+        InvoiceMutationResult bufferedResult = handleBufferedPayments(request.getOrderId(), upsertResult.invoice());
 
-        handleBufferedPayments(request.getOrderId(), invoice);
-        return invoice;
+        return new InvoiceMutationResult(
+                bufferedResult.invoice(),
+                upsertResult.changed() || bufferedResult.changed()
+        );
     }
 
     /**
@@ -74,62 +80,76 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
     /**
      * Creates the invoice if missing or advances its status when the incoming event is newer.
      */
-    private Invoice upsertInvoice(SquareInvoicePaymentRequest request, Subscription subscription) {
+    private InvoiceMutationResult upsertInvoice(SquareInvoicePaymentRequest request, Subscription subscription) {
 
         String orderId = request.getOrderId();
         String incomingStatus = request.getStatus();
         LocalDateTime now = LocalDateTime.now();
 
-        Invoice invoice = invoiceRepo.findByOrderId(orderId)
-                .orElseGet(() -> {
-                    Invoice newInvoice = new Invoice();
-                    newInvoice.setOrderId(orderId);
-                    newInvoice.setCustomerSubscriptionId(request.getSubscriptionId());
-                    newInvoice.setAmount(request.getAmount());
-                    newInvoice.setCurrency(request.getCurrency());
-                    newInvoice.setStatus(incomingStatus);
-                    newInvoice.setUpdatedAt(now);
+        Invoice existingInvoice = invoiceRepo.findByOrderId(orderId).orElse(null);
 
-                    if (subscription != null) {
-                        newInvoice.setSubscriptionId(subscription.getId());
-                    }
+        if (existingInvoice == null) {
+            Invoice newInvoice = new Invoice();
+            newInvoice.setOrderId(orderId);
+            newInvoice.setCustomerSubscriptionId(request.getSubscriptionId());
+            newInvoice.setAmount(request.getAmount());
+            newInvoice.setCurrency(request.getCurrency());
+            newInvoice.setStatus(incomingStatus);
+            newInvoice.setUpdatedAt(now);
 
-                    return newInvoice;
-                });
-
-        if (invoice.getId() != 0) {
-            if (request.getSubscriptionId() != null && !request.getSubscriptionId().isBlank()) {
-                invoice.setCustomerSubscriptionId(request.getSubscriptionId());
+            if (subscription != null) {
+                newInvoice.setSubscriptionId(subscription.getId());
             }
 
-            if (request.getAmount() != null) {
-                invoice.setAmount(request.getAmount());
-            }
-
-            if (request.getCurrency() != null && !request.getCurrency().isBlank()) {
-                invoice.setCurrency(request.getCurrency());
-            }
-
-            if (subscription != null && invoice.getSubscriptionId() == null) {
-                invoice.setSubscriptionId(subscription.getId());
-            }
-
-            if (shouldAdvanceStatus(incomingStatus, invoice.getStatus())) {
-                invoice.setStatus(incomingStatus);
-            }
-
-            invoice.setUpdatedAt(now);
+            return new InvoiceMutationResult(invoiceRepo.save(newInvoice), true);
         }
 
-        return invoiceRepo.save(invoice);
+        boolean changed = false;
+
+        if (!isBlank(request.getSubscriptionId())
+                && !Objects.equals(existingInvoice.getCustomerSubscriptionId(), request.getSubscriptionId())) {
+            existingInvoice.setCustomerSubscriptionId(request.getSubscriptionId());
+            changed = true;
+        }
+
+        if (request.getAmount() != null && !sameAmount(existingInvoice.getAmount(), request.getAmount())) {
+            existingInvoice.setAmount(request.getAmount());
+            changed = true;
+        }
+
+        if (!isBlank(request.getCurrency()) && !Objects.equals(existingInvoice.getCurrency(), request.getCurrency())) {
+            existingInvoice.setCurrency(request.getCurrency());
+            changed = true;
+        }
+
+        if (subscription != null && !Objects.equals(existingInvoice.getSubscriptionId(), subscription.getId())) {
+            existingInvoice.setSubscriptionId(subscription.getId());
+            changed = true;
+        }
+
+        if (shouldAdvanceStatus(incomingStatus, existingInvoice.getStatus())) {
+            existingInvoice.setStatus(incomingStatus);
+            changed = true;
+        }
+
+        if (!changed) {
+            logger.info("Ignored stale invoice webhook eventId={} for orderId={}. currentStatus={}, incomingStatus={}",
+                    request.getEventId(), existingInvoice.getOrderId(), existingInvoice.getStatus(), incomingStatus);
+            return new InvoiceMutationResult(existingInvoice, false);
+        }
+
+        existingInvoice.setUpdatedAt(now);
+        return new InvoiceMutationResult(invoiceRepo.save(existingInvoice), true);
     }
 
     /**
      * Applies the strongest buffered payment status for the order and clears the buffer.
      */
-    private void handleBufferedPayments(String orderId, Invoice invoice) {
+    private InvoiceMutationResult handleBufferedPayments(String orderId, Invoice invoice) {
         List<PaymentBuffer> bufferList = paymentBuffer.findByOrderId(orderId);
-        if (bufferList.isEmpty()) return;
+        if (bufferList.isEmpty()) {
+            return new InvoiceMutationResult(invoice, false);
+        }
 
         PaymentBuffer highestRankPayment = null;
         int highestRank = Integer.MIN_VALUE;
@@ -148,12 +168,15 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
             String previousStatus = invoice.getStatus();
             invoice.setStatus(highestRankPayment.getStatus());
             invoice.setUpdatedAt(LocalDateTime.now());
-            invoiceRepo.save(invoice);
+            Invoice savedInvoice = invoiceRepo.save(invoice);
             logger.info("Promoted invoice orderId={} from status {} to {} using buffered payment status={}",
                     invoice.getOrderId(), previousStatus, highestRankPayment.getStatus(), highestRankPayment.getStatus());
+            paymentBuffer.deleteByOrderId(orderId);
+            return new InvoiceMutationResult(savedInvoice, true);
         }
 
         paymentBuffer.deleteByOrderId(orderId);
+        return new InvoiceMutationResult(invoice, false);
     }
 
     /**
@@ -168,6 +191,14 @@ public class InvoiceBillingServiceImpl implements InvoiceBillingService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private boolean sameAmount(BigDecimal left, BigDecimal right) {
+        if (left == null || right == null) {
+            return left == right;
+        }
+
+        return left.compareTo(right) == 0;
     }
 
 }

@@ -1,13 +1,13 @@
 package com.powersolutions.solarshield.service.impl;
 
 import com.powersolutions.solarshield.dto.SquareInvoicePaymentRequest;
-import com.powersolutions.solarshield.entity.Invoice;
 import com.powersolutions.solarshield.enums.SquareBillingStatus;
 import com.powersolutions.solarshield.service.api.InvoiceBillingService;
 import com.powersolutions.solarshield.service.api.PaymentBillingService;
 import com.powersolutions.solarshield.service.api.SquareEventService;
 import com.powersolutions.solarshield.service.api.SquareWebhookService;
 import com.powersolutions.solarshield.service.api.SubscriptionLifecycleService;
+import com.powersolutions.solarshield.service.model.InvoiceMutationResult;
 import com.powersolutions.solarshield.zoho.event.InvoiceChangedEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,16 +68,16 @@ public class SquareWebhookServiceImpl implements SquareWebhookService {
             case INVOICE_UPDATED:
             case INVOICE_PAYMENT_MADE:
             case INVOICE_SCHEDULED_CHARGE_FAILED:
-                Invoice invoice = invoiceBillingService.processInvoiceWebhook(request);
-                activateSubscriptionIfInvoiceIsSuccessful(request, invoice);
-                publishInvoiceChangedEvent(invoice);
+                InvoiceMutationResult invoiceResult = invoiceBillingService.processInvoiceWebhook(request);
+                activateSubscriptionIfInvoiceIsSuccessful(request, invoiceResult);
+                publishInvoiceChangedEvent(invoiceResult);
                 break;
 
             case PAYMENT_CREATED:
             case PAYMENT_UPDATED:
-                Invoice paymentInvoice = paymentBillingService.processPaymentWebhook(request);
-                activateSubscriptionIfInvoiceIsSuccessful(request, paymentInvoice);
-                publishInvoiceChangedEvent(paymentInvoice);
+                InvoiceMutationResult paymentResult = paymentBillingService.processPaymentWebhook(request);
+                activateSubscriptionIfInvoiceIsSuccessful(request, paymentResult);
+                publishInvoiceChangedEvent(paymentResult);
                 break;
         }
 
@@ -103,11 +103,12 @@ public class SquareWebhookServiceImpl implements SquareWebhookService {
         }
     }
 
-    private void activateSubscriptionIfInvoiceIsSuccessful(SquareInvoicePaymentRequest request, Invoice invoice) {
-        if (invoice == null || !isSuccessfulBillingStatus(invoice.getStatus())) {
+    private void activateSubscriptionIfInvoiceIsSuccessful(SquareInvoicePaymentRequest request, InvoiceMutationResult result) {
+        if (result == null || !result.changed() || result.invoice() == null || !isSuccessfulBillingStatus(result.invoice().getStatus())) {
             return;
         }
 
+        var invoice = result.invoice();
         if ((request.getSubscriptionId() == null || request.getSubscriptionId().isBlank())
                 && invoice.getCustomerSubscriptionId() != null
                 && !invoice.getCustomerSubscriptionId().isBlank()) {
@@ -121,12 +122,12 @@ public class SquareWebhookServiceImpl implements SquareWebhookService {
         return SquareBillingStatus.fromValue(status).getRank() >= SquareBillingStatus.COMPLETED.getRank();
     }
 
-    private void publishInvoiceChangedEvent(Invoice invoice) {
-        if (invoice == null || invoice.getId() <= 0) {
+    private void publishInvoiceChangedEvent(InvoiceMutationResult result) {
+        if (result == null || !result.changed() || result.invoice() == null || result.invoice().getId() <= 0) {
             return;
         }
 
-        eventPublisher.publishEvent(new InvoiceChangedEvent(invoice.getId()));
+        eventPublisher.publishEvent(new InvoiceChangedEvent(result.invoice().getId()));
     }
 
 }

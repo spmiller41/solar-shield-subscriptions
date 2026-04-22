@@ -239,10 +239,13 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
 
         if (!wasActive) {
             eventPublisher.publishEvent(new SubscriptionActivatedEvent(savedSub.getId()));
+            logger.info("Activated subscriptionId={} from {} eventId={} orderId={} subscriptionStatus={}",
+                    savedSub.getId(), source, request.getEventId(), request.getOrderId(), savedSub.getSubscriptionStatus());
+            return savedSub;
         }
 
-        logger.info("Activated subscriptionId={} from {} eventId={} orderId={} subscriptionStatus={}",
-                savedSub.getId(), source, request.getEventId(), request.getOrderId(), savedSub.getSubscriptionStatus());
+        logger.info("SubscriptionId={} already ACTIVE; refreshed billing linkage from {} eventId={} orderId={}",
+                savedSub.getId(), source, request.getEventId(), request.getOrderId());
         return savedSub;
     }
 

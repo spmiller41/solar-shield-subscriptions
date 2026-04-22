@@ -7,6 +7,7 @@ import com.powersolutions.solarshield.enums.SquareBillingStatus;
 import com.powersolutions.solarshield.repo.InvoiceRepo;
 import com.powersolutions.solarshield.repo.PendingPaymentRepo;
 import com.powersolutions.solarshield.service.api.PaymentBillingService;
+import com.powersolutions.solarshield.service.model.InvoiceMutationResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -34,11 +35,11 @@ public class PaymentBillingServiceImpl implements PaymentBillingService {
      * Routes the payment event to an existing invoice or buffers it for later replay.
      */
     @Override
-    public Invoice processPaymentWebhook(SquareInvoicePaymentRequest request) {
+    public InvoiceMutationResult processPaymentWebhook(SquareInvoicePaymentRequest request) {
         if (request.getOrderId() == null || request.getOrderId().isBlank()) {
             logger.warn("Skipping payment webhook eventId={} because orderId is missing. eventType={}",
                     request.getEventId(), request.getEventType());
-            return null;
+            return new InvoiceMutationResult(null, false);
         }
 
         Optional<Invoice> optInvoice = invoiceRepo.findByOrderId(request.getOrderId());
@@ -52,7 +53,7 @@ public class PaymentBillingServiceImpl implements PaymentBillingService {
         logger.info("Buffering payment webhook eventId={} for unresolved orderId={} status={}",
                 request.getEventId(), request.getOrderId(), request.getStatus());
         bufferPayment(request);
-        return null;
+        return new InvoiceMutationResult(null, false);
     }
 
     /**
@@ -67,7 +68,7 @@ public class PaymentBillingServiceImpl implements PaymentBillingService {
     /**
      * Advances the invoice when the incoming payment status outranks the stored one.
      */
-    private Invoice applyPaymentToInvoice(SquareInvoicePaymentRequest request, Invoice invoice) {
+    private InvoiceMutationResult applyPaymentToInvoice(SquareInvoicePaymentRequest request, Invoice invoice) {
         String incomingStatus = request.getStatus();
 
         if (shouldAdvanceStatus(incomingStatus, invoice.getStatus())) {
@@ -77,12 +78,12 @@ public class PaymentBillingServiceImpl implements PaymentBillingService {
             Invoice savedInvoice = invoiceRepo.save(invoice);
             logger.info("Updated invoice orderId={} from status {} to {} via payment eventId={}",
                     invoice.getOrderId(), previousStatus, incomingStatus, request.getEventId());
-            return savedInvoice;
+            return new InvoiceMutationResult(savedInvoice, true);
         }
 
         logger.info("Ignored stale payment webhook eventId={} for orderId={}. currentStatus={}, incomingStatus={}",
                 request.getEventId(), invoice.getOrderId(), invoice.getStatus(), incomingStatus);
-        return invoice;
+        return new InvoiceMutationResult(invoice, false);
     }
 
     /**
