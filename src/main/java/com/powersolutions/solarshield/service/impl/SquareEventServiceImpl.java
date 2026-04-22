@@ -32,11 +32,7 @@ public class SquareEventServiceImpl implements SquareEventService {
             return false;
         }
 
-        boolean processed = eventRepo.existsByEventId(eventId);
-        if (processed) {
-            logger.info("Square webhook eventId={} has already been recorded as processed", eventId);
-        }
-        return processed;
+        return eventRepo.existsByEventId(eventId);
     }
 
     /**

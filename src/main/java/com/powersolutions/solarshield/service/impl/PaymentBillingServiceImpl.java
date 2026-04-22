@@ -50,8 +50,6 @@ public class PaymentBillingServiceImpl implements PaymentBillingService {
             return applyPaymentToInvoice(request, optInvoice.get());
         }
 
-        logger.info("Buffering payment webhook eventId={} for unresolved orderId={} status={}",
-                request.getEventId(), request.getOrderId(), request.getStatus());
         bufferPayment(request);
         return new InvoiceMutationResult(null, false);
     }

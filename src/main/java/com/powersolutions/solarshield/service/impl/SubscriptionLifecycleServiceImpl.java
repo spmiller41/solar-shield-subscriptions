@@ -11,6 +11,7 @@ import com.powersolutions.solarshield.enums.SubscriptionStatus;
 import com.powersolutions.solarshield.repo.InvoiceRepo;
 import com.powersolutions.solarshield.repo.SubscriptionRepo;
 import com.powersolutions.solarshield.service.api.SubscriptionLifecycleService;
+import com.powersolutions.solarshield.service.model.SubscriptionActivationResult;
 import com.powersolutions.solarshield.service.square.SquareSubscriptionCheckoutService;
 import com.powersolutions.solarshield.zoho.event.SubscriptionActivatedEvent;
 import org.slf4j.Logger;
@@ -116,7 +117,7 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
                     repairInvoicesForSubscription(savedSub);
 
                     if (hasSuccessfulLinkedInvoice(savedSub)) {
-                        return activateSubscription(savedSub, request, "linked-paid-invoice");
+                        return activateSubscription(savedSub, request, "linked-paid-invoice").subscription();
                     }
 
                     logger.info("Linked subscriptionId={} from Square webhook eventId={} orderId={} customerSubscriptionId={}",
@@ -134,11 +135,11 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
      * Activates the local subscription after a confirmed Square billing success event.
      */
     @Override
-    public Subscription activateSubscriptionFromBillingWebhook(SquareInvoicePaymentRequest request) {
+    public SubscriptionActivationResult activateSubscriptionFromBillingWebhook(SquareInvoicePaymentRequest request) {
         if (isBlank(request.getSubscriptionId())) {
             logger.warn("Cannot activate subscription from billing webhook eventId={} because customerSubscriptionId is missing",
                     request.getEventId());
-            return null;
+            return new SubscriptionActivationResult(null, false);
         }
 
         return subscriptionRepo.findByCustomerSubscriptionId(request.getSubscriptionId())
@@ -146,7 +147,7 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
                 .orElseGet(() -> {
                     logger.warn("No subscription found for billing webhook eventId={} customerSubscriptionId={} orderId={} during activation",
                             request.getEventId(), request.getSubscriptionId(), request.getOrderId());
-                    return null;
+                    return new SubscriptionActivationResult(null, false);
                 });
     }
 
@@ -220,7 +221,7 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
         return Optional.of(response.getCheckoutLink());
     }
 
-    private Subscription activateSubscription(Subscription sub, SquareInvoicePaymentRequest request, String source) {
+    private SubscriptionActivationResult activateSubscription(Subscription sub, SquareInvoicePaymentRequest request, String source) {
         boolean wasActive = sub.getSubscriptionStatus() == SubscriptionStatus.ACTIVE;
 
         sub.setCustomerSubscriptionId(firstNonBlank(request.getSubscriptionId(), sub.getCustomerSubscriptionId()));
@@ -241,12 +242,12 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
             eventPublisher.publishEvent(new SubscriptionActivatedEvent(savedSub.getId()));
             logger.info("Activated subscriptionId={} from {} eventId={} orderId={} subscriptionStatus={}",
                     savedSub.getId(), source, request.getEventId(), request.getOrderId(), savedSub.getSubscriptionStatus());
-            return savedSub;
+            return new SubscriptionActivationResult(savedSub, true);
         }
 
         logger.info("SubscriptionId={} already ACTIVE; refreshed billing linkage from {} eventId={} orderId={}",
                 savedSub.getId(), source, request.getEventId(), request.getOrderId());
-        return savedSub;
+        return new SubscriptionActivationResult(savedSub, false);
     }
 
     private String firstNonBlank(String preferredValue, String fallbackValue) {

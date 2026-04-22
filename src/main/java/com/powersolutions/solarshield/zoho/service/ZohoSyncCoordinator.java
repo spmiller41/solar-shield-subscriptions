@@ -52,6 +52,10 @@ public class ZohoSyncCoordinator {
     @Order(2)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleInvoiceChanged(InvoiceChangedEvent event) {
+        if (event.activationSyncScheduled()) {
+            return;
+        }
+
         Invoice invoice = invoiceRepo.findById(event.invoiceId())
                 .orElse(null);
 
