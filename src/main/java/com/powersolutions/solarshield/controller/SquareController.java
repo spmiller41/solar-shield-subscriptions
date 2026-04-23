@@ -39,13 +39,14 @@ public class SquareController {
         return processWebhook(squareRequest, signatureHeader, true, "/updates");
     }
 
+
     /**
      * Accepts unsigned Square webhook payloads for manual replay and local testing.
-     */
-    @PostMapping("/updates_test")
+    // @PostMapping("/updates_test")
     public ResponseEntity<Map<String, String>> paymentUpdateTest(@RequestBody(required = false) String squareRequest) {
         return processWebhook(squareRequest, null, false, "/updates_test");
     }
+    */
 
     private ResponseEntity<Map<String, String>> processWebhook(String squareRequest,
                                                                String signatureHeader,
