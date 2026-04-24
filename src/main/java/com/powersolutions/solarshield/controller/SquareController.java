@@ -64,7 +64,7 @@ public class SquareController {
 
         if (verifySignature && !signatureVerifier.isValidSignature(squareRequest, signatureHeader)) {
             logger.warn("Rejected Square webhook at {} because signature verification failed", endpoint);
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorBody("Invalid Square signature"));
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorBody("Invalid Square signature"));
         }
 
         try {

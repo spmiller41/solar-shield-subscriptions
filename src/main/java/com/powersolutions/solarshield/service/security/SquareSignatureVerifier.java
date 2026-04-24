@@ -8,6 +8,8 @@ import org.springframework.stereotype.Service;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.net.URI;
+import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.util.Base64;
 
@@ -18,61 +20,80 @@ import java.util.Base64;
 public class SquareSignatureVerifier {
 
     private static final Logger logger = LoggerFactory.getLogger(SquareSignatureVerifier.class);
+    private static final String HMAC_SHA_256 = "HmacSHA256";
 
-    @Value("${square.webhook.signature.key}")
-    private String signatureKey;
+    private final byte[] signatureKeyBytes;
+    private final String notificationUrl;
 
-    @Value("${square.webhook.notification.url}")
-    private String notificationUrl;
+    public SquareSignatureVerifier(@Value("${square.webhook.signature.key}") String signatureKey,
+                                   @Value("${square.webhook.notification.url}") String notificationUrl) {
+        this.signatureKeyBytes = normalizeRequiredProperty("square.webhook.signature.key", signatureKey)
+                .getBytes(StandardCharsets.UTF_8);
+        this.notificationUrl = validateNotificationUrl(notificationUrl);
+    }
 
     /**
      * Returns true when the supplied Square signature matches the expected signature for the payload.
      */
     public boolean isValidSignature(String payload, String headerSignature) {
+        if (payload == null) {
+            logger.warn("Square signature verification failed because the payload was missing");
+            return false;
+        }
+
+        if (headerSignature == null || headerSignature.isBlank()) {
+            logger.warn("Square signature verification failed because the signature header was blank");
+            return false;
+        }
+
         try {
-            if (payload == null || payload.isBlank()) {
-                logger.warn("Square signature verification failed because the payload was blank");
-                return false;
-            }
+            byte[] generatedSignature = generateSignature(payload);
+            byte[] receivedSignature = Base64.getDecoder().decode(headerSignature.trim());
 
-            if (headerSignature == null || headerSignature.isBlank()) {
-                logger.warn("Square signature verification failed because the signature header was blank");
-                return false;
-            }
-
-            if (signatureKey == null || signatureKey.isBlank()) {
-                logger.error("Square signature verification failed because the signature key is not configured");
-                return false;
-            }
-
-            if (notificationUrl == null || notificationUrl.isBlank()) {
-                logger.error("Square signature verification failed because the notification URL is not configured");
-                return false;
-            }
-
-            Mac mac = Mac.getInstance("HmacSHA256");
-            SecretKeySpec secretKeySpec = new SecretKeySpec(signatureKey.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-            mac.init(secretKeySpec);
-
-            String message = notificationUrl + payload;
-            byte[] digest = mac.doFinal(message.getBytes(StandardCharsets.UTF_8));
-
-            String generatedSignature = Base64.getEncoder().encodeToString(digest);
-
-            boolean valid = MessageDigest.isEqual(
-                    generatedSignature.getBytes(StandardCharsets.UTF_8),
-                    headerSignature.getBytes(StandardCharsets.UTF_8)
-            );
+            boolean valid = MessageDigest.isEqual(generatedSignature, receivedSignature);
 
             if (!valid) {
                 logger.warn("Square signature verification failed due to signature mismatch");
             }
 
             return valid;
-        } catch (Exception ex) {
+        } catch (IllegalArgumentException ex) {
+            logger.warn("Square signature verification failed because the signature header was not valid Base64");
+            return false;
+        } catch (GeneralSecurityException ex) {
             logger.error("Square signature verification failed due to an internal error", ex);
             return false;
         }
+    }
+
+    private byte[] generateSignature(String payload) throws GeneralSecurityException {
+        Mac mac = Mac.getInstance(HMAC_SHA_256);
+        mac.init(new SecretKeySpec(signatureKeyBytes, HMAC_SHA_256));
+        return mac.doFinal((notificationUrl + payload).getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String validateNotificationUrl(String notificationUrl) {
+        String normalizedNotificationUrl = normalizeRequiredProperty("square.webhook.notification.url", notificationUrl);
+
+        try {
+            URI uri = URI.create(normalizedNotificationUrl);
+            if (!uri.isAbsolute() || uri.getHost() == null) {
+                throw new IllegalArgumentException("Notification URL must be absolute");
+            }
+            return uri.toString();
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalStateException(
+                    "Property square.webhook.notification.url must be a valid absolute URL",
+                    ex
+            );
+        }
+    }
+
+    private String normalizeRequiredProperty(String propertyName, String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException("Property " + propertyName + " must be configured");
+        }
+        return value.trim();
     }
 
 }
