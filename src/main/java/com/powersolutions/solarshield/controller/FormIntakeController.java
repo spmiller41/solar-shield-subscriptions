@@ -50,7 +50,7 @@ public class FormIntakeController {
         Contact contact = contactServiceImpl.upsertAndGet(new Contact(request));
         SubscriptionProcessingResult result = addressSubscriptionServiceImpl.handleAddressAndSubscription(request, contact);
         Optional<String> checkoutLink =
-                subscriptionLifecycleServiceImpl.getOrCreateCheckoutLinkWithPrebuiltResponse(result);
+                subscriptionLifecycleServiceImpl.getOrCreateCheckoutLink(result, contact);
 
         if (checkoutLink.isPresent()) {
             logger.info("Redirecting customer to Square checkout link for subscriptionId={}",

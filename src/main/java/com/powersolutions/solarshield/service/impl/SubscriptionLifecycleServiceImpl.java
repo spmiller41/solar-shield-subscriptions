@@ -75,9 +75,8 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
         return persistCheckoutLink(sub, response, "square-api");
     }
 
-    /**
-     * Reuses an existing checkout link or stores a fixed Square response captured from a live test.
-     */
+    /*
+    * Reuses an existing checkout link or stores a fixed Square response captured from a live test.
     public Optional<String> getOrCreateCheckoutLinkWithPrebuiltResponse(SubscriptionProcessingResult wrapper) {
         if (shouldSkipCheckoutLinkCreation(wrapper, "prebuilt checkout link creation")) {
             return Optional.empty();
@@ -93,6 +92,7 @@ public class SubscriptionLifecycleServiceImpl implements SubscriptionLifecycleSe
                 sub.getId(), PREBUILT_SQUARE_CHECKOUT_RESPONSE.getOrderId());
         return persistCheckoutLink(sub, PREBUILT_SQUARE_CHECKOUT_RESPONSE, "prebuilt-square-response");
     }
+    */
 
     /**
      * Links Square subscription identifiers to the local subscription without activating it.
