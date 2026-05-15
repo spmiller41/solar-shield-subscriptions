@@ -24,6 +24,9 @@ import java.util.Map;
 public class SquareSubscriptionCheckoutService {
 
     private static final Logger logger = LoggerFactory.getLogger(SquareSubscriptionCheckoutService.class);
+    private static final String SILVER_REDIRECT_URL = "https://hss-welcome.webflow.io/silver";
+    private static final String GOLD_REDIRECT_URL = "https://hss-welcome.webflow.io/";
+    private static final String PLATINUM_REDIRECT_URL = "https://hss-welcome-platinum.webflow.io/";
 
     @Value("${square.api.url}")
     private String squareApiUrl;
@@ -156,6 +159,7 @@ public class SquareSubscriptionCheckoutService {
     private Map<String, Object> buildCheckoutOptions(Subscription subscription) {
         Map<String, Object> checkoutOptions = new HashMap<>();
         checkoutOptions.put("subscription_plan_id", getPlanVariationId(subscription.getPlanTier()));
+        checkoutOptions.put("redirect_url", getRedirectUrl(subscription.getPlanTier()));
         return checkoutOptions;
     }
 
@@ -206,6 +210,14 @@ public class SquareSubscriptionCheckoutService {
             case GOLD -> goldPlanVariationId;
             case PLATINUM -> platinumPlanVariationId;
             case TEST -> testPlanVariationId;
+        };
+    }
+
+    private String getRedirectUrl(PlanTier planTier) {
+        return switch (planTier) {
+            case SILVER -> SILVER_REDIRECT_URL;
+            case GOLD, TEST -> GOLD_REDIRECT_URL;
+            case PLATINUM -> PLATINUM_REDIRECT_URL;
         };
     }
 
